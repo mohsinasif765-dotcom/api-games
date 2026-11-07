@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050508;
+  --foreground: #ffffff;
+  --accent: #9d50bb;
+  --accent-secondary: #6e48aa;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --glow-color: rgba(157, 80, 187, 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-secondary: var(--accent-secondary);
+}
+
+html,
+body {
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .neon-text {
+    text-shadow: 0 0 10px var(--glow-color), 0 0 20px rgba(157, 80, 187, 0.2);
+  }
+
+  .neon-glow {
+    box-shadow: 0 0 20px var(--glow-color);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; filter: blur(10px); }
+  50% { opacity: 0.8; filter: blur(15px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+

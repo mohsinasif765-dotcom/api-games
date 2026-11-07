@@ -1,0 +1,947 @@
+.root {
+  --teal-panel: #0d5c5c;
+  --teal-cell: #148080;
+  --teal-cell-hi: #1a9a9a;
+  --wood-dark: #3e2a1a;
+  --wood-mid: #5c3d24;
+  --wood-light: #7a5636;
+  --yellow-btn: #f0c418;
+  --yellow-btn-edge: #c9970a;
+  /*
+   * Full viewport height (no dark top/bottom bars in Chrome).
+   * Width capped on desktop — green letterbox only left/right.
+   */
+  --frame-w: min(100vw, 26.5rem);
+  --frame-h: 100dvh;
+  --wood-bar-h: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+  --green-seam: calc((var(--frame-h) - var(--wood-bar-h)) * 0.594);
+  /* original place: center on green border, previous larger size */
+  --wheel-box: min(96%, calc(var(--frame-h) * 0.48), 23rem);
+  --wheel-below: calc(var(--frame-h) * 0.12);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  border-radius: 0;
+  background-color: #041f18;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  color: #fff;
+}
+
+.hud {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: var(--frame-w);
+  height: var(--frame-h);
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #01704a;
+  background-image: url('/euro-roulette/background-emage.webp?v=7');
+  background-repeat: no-repeat;
+  background-position: center top;
+  /* scenic fills frame above woodBar */
+  background-size: 100% calc(100% - var(--wood-bar-h));
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+/* —— Splash —— */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: block;
+  background: #0a1628;
+  pointer-events: all;
+  overflow: hidden;
+}
+
+.splashBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* contain = no crop on top corners of splash art */
+  object-fit: contain;
+  object-position: center top;
+  background: #0a1628;
+}
+
+.splashFooter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  padding: 0 1.25rem;
+}
+
+.splashBarTrack {
+  width: min(16rem, 70vw);
+  height: 0.85rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(240, 196, 24, 0.55);
+  padding: 3px;
+}
+
+.splashBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f0c418, #c9970a);
+  transition: width 0.15s ease-out;
+}
+
+.splashPct {
+  margin-top: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 248, 220, 0.92);
+}
+
+/* —— Top meta (over scenic / logo) —— */
+.topMeta {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  padding: 0.35rem 0.55rem 0;
+  height: clamp(2.4rem, 6dvh, 3.2rem);
+  flex-shrink: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.topMeta > * {
+  pointer-events: auto;
+}
+
+.logo {
+  /* between top + chaker — just above the wheel */
+  position: absolute;
+  left: 50%;
+  top: calc(var(--green-seam) - (var(--wheel-box) * 0.5) - 11.6rem);
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  width: min(70%, 14.5rem);
+  height: auto;
+  max-height: 3.2rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.roundLabel {
+  justify-self: start;
+  align-self: end;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  padding-bottom: 0.1rem;
+}
+
+.pingPill {
+  position: absolute;
+  right: 0.35rem;
+  /* start just above green border (Help ke upar wali side) */
+  top: calc(var(--green-seam) - 1.45rem);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 4.15rem;
+  height: 1.15rem;
+  padding: 0 0.32rem 0 1.15rem;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 999px;
+  background-color: transparent;
+  background-image: url('/euro-roulette/wi-fi-matter-trim.webp');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #39ff6a;
+  pointer-events: none;
+}
+
+.pingValue {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
+  /* cover baked 197ms on art */
+  background: #2a3038;
+  border-radius: 0.25rem;
+  padding: 0.02rem 0.12rem;
+  line-height: 1.1;
+}
+
+/* —— Wheel + side chrome (wheel center on green border) —— */
+.wheelStage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--green-seam);
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) 3.85rem;
+  align-items: end;
+  align-content: end;
+  gap: 0.15rem;
+  padding: 0 0.35rem;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.sideColLeft,
+.sideColRight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  z-index: 2;
+  pointer-events: auto;
+  align-self: end;
+  transform: translateY(calc(var(--frame-h) * 0.14));
+}
+
+.sideColLeft {
+  justify-self: start;
+  align-items: flex-start;
+  /* mid — not too high, not too low */
+  transform: translateY(calc(var(--frame-h) * 0.14));
+}
+
+.sideColRight {
+  position: absolute;
+  right: 0.4rem;
+  /* just below green border — help, mute, player stacked */
+  top: calc(var(--green-seam) + 0.35rem);
+  justify-self: end;
+  align-self: start;
+  align-items: center;
+  transform: none;
+  gap: 0.4rem;
+  z-index: 5;
+}
+
+.iconBtn {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  border: 2px solid var(--yellow-btn-edge);
+  background: radial-gradient(
+    circle at 35% 30%,
+    #ffe566 0%,
+    var(--yellow-btn) 55%,
+    var(--yellow-btn-edge) 100%
+  );
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow:
+    0 2px 0 #8a6808,
+    0 3px 8px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  line-height: 1;
+  padding: 0;
+}
+
+.iconBtn:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 #8a6808,
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.iconBtnImg {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  overflow: visible;
+  width: 2.55rem;
+  height: 2.55rem;
+}
+
+.iconBtnImg:active {
+  box-shadow: none;
+}
+
+.iconBtnAsset {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.iconBtnMuted .iconBtnAsset {
+  opacity: 0.45;
+  filter: grayscale(0.55) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.newTimerRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.newBadgeStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Back — only a tiny nudge down */
+.backBtn {
+  position: relative;
+  z-index: 3;
+  transform: translateY(0.55rem);
+}
+
+.backBtn:active {
+  transform: translateY(calc(0.55rem + 1px));
+}
+
+.newBadge {
+  position: relative;
+  display: block;
+  width: 2.85rem;
+  height: 4.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  /* cleared circle art — live number overlays only when history exists */
+  background: url('/euro-roulette/new-trim.webp?v=3') center / contain no-repeat;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+  min-width: 0;
+  flex-shrink: 0;
+  transform: translateY(0.45rem);
+}
+
+.newBadgeNum {
+  /* covers the art ball exactly — one circle, not a second blob */
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #fff;
+  border: none;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+
+.hist_green {
+  background: #2e7d32;
+}
+.hist_red {
+  background: #c62828;
+}
+.hist_black {
+  background: #212121;
+}
+
+.timerRing {
+  position: relative;
+  width: 2.85rem;
+  height: 3.35rem;
+  border: none;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  background: url('/euro-roulette/timer-watch-trim.webp') center / contain no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+.timerRingUrgent {
+  filter: drop-shadow(0 0 6px rgba(255, 152, 0, 0.65))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+.timerNum {
+  /* sit on white watch face (below crown) */
+  margin-top: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: none;
+}
+
+/* own button inside sideColRight — selectable alone, in-flow */
+.playerBtn {
+  position: relative;
+  right: auto;
+  top: auto;
+  z-index: 1;
+  pointer-events: auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0.1rem 0 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.playerPill {
+  display: block;
+  width: 4.6rem;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+  user-select: none;
+}
+
+.canvasHost {
+  /* same place as before: center exactly on green border */
+  position: relative;
+  width: var(--wheel-box);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  margin: 0 auto;
+  pointer-events: none;
+  flex-shrink: 0;
+  overflow: visible;
+  justify-self: center;
+  align-self: end;
+  transform: translateY(50%);
+  z-index: 3;
+}
+
+.canvasHost :global(canvas) {
+  pointer-events: none !important;
+  display: block !important;
+  /* Never force w+h both to 100% — that stretches FIT into an oval. */
+  margin: 0 auto !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* —— Boxes just above woodBar (small gap); wood at bottom —— */
+.bottomBlock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.betPanel {
+  background: transparent;
+  border-radius: 0;
+  /* thora sa gap above woodBar */
+  padding: 0 0.55rem 0.4rem;
+  border: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  display: block;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  flex: 0 0 auto;
+}
+
+.betGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 0.32rem;
+  justify-content: stretch;
+  flex: 0 0 auto;
+}
+
+.betCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.1rem;
+  border: none;
+  border-radius: 0.45rem;
+  background-color: transparent;
+  background-image: url('/euro-roulette/multiplier.webp');
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #fff;
+  padding: 0.45rem 0.18rem 0.48rem;
+  cursor: pointer;
+  box-shadow: none;
+  width: 100%;
+  height: 4.85rem;
+  min-height: 4.85rem;
+  max-height: 4.85rem;
+  overflow: visible;
+}
+
+.betCell:disabled {
+  opacity: 0.92;
+  cursor: default;
+  filter: saturate(0.92);
+}
+
+.betCell:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.betCellWin {
+  filter: brightness(1.2) saturate(1.15);
+  box-shadow:
+    0 0 0 2px #f5e6a3,
+    0 0 14px rgba(245, 230, 163, 0.45);
+  animation: winPulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes winPulse {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.18);
+  }
+}
+
+/* Header strip: 0 / 500 — compact for smaller cells */
+.betLimit {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #fff8c8;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.85),
+    0 1px 1px rgba(0, 0, 0, 0.9);
+}
+
+/* Body — 2 rows: label then xMult */
+.betLabelRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  line-height: 1.05;
+}
+
+.betLabel {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  color: #48f0c0;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.55),
+    0 1px 1px rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+}
+
+.betMult {
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: #48f0c0;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.55),
+    0 1px 1px rgba(0, 0, 0, 0.65);
+}
+
+.betChipStack {
+  position: absolute;
+  left: 50%;
+  bottom: 0.15rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.betChipImg {
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.betChipAmt {
+  margin-top: -0.2rem;
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.woodBar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+  height: var(--wood-bar-h);
+  min-height: var(--wood-bar-h);
+  box-sizing: border-box;
+  padding: 0.4rem 0.55rem max(0.4rem, env(safe-area-inset-bottom, 0px));
+  background-color: #5a2e18;
+  background-image: url('/euro-roulette/bottom-card-bg.webp');
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.balanceBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.12rem 0.45rem 0.12rem 0.15rem;
+  border-radius: 999px;
+  background: rgba(22, 12, 8, 0.78);
+  border: 1px solid #c4a882;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.balanceGem {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #7b1fa2;
+  line-height: 1;
+  font-family: system-ui, sans-serif;
+  /* Pink chip, white center, purple G — same as reference */
+  background:
+    radial-gradient(circle at 50% 50%, #ffffff 0 36%, transparent 37%),
+    repeating-conic-gradient(
+      from 6deg,
+      #e91e8c 0deg 15deg,
+      #ffffff 15deg 25deg,
+      #e91e8c 25deg 45deg
+    );
+  box-shadow:
+    0 0 0 1px rgba(255, 200, 230, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.balanceValue {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.chipsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.chipSlot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.1rem 0.1rem;
+  cursor: pointer;
+  opacity: 0.88;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.chipSlotActive {
+  opacity: 1;
+}
+
+.chipCaret {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 0.35rem solid transparent;
+  border-right: 0.35rem solid transparent;
+  border-top: 0.4rem solid #fff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+.chipSlotActive .chipCoin {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 10px rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+}
+
+.chipCoin {
+  width: 2.55rem;
+  height: 2.55rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.repeatBtn {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, #c8c8c8 0%, #9e9e9e 100%);
+  color: #3a3a3a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 2px 0 #6e6e6e,
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.repeatBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.repeatBtn:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 #6e6e6e,
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* —— Overlays —— */
+.banner {
+  position: fixed;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  padding: 0.65rem 1.4rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(240, 196, 24, 0.65);
+  color: #fff8dc;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  animation: bannerIn 0.45s ease-out;
+  pointer-events: none;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.modalScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.58);
+  animation: modalFadeIn 0.35s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modalCard {
+  position: relative;
+  width: min(20rem, 90vw);
+  aspect-ratio: 737 / 715;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: url('/euro-roulette/end-game-popup.webp?v=2') center / contain no-repeat;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+  animation: modalPop 0.5s cubic-bezier(0.22, 1.2, 0.36, 1);
+  overflow: visible;
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Pink ribbon title — centered on ribbon arch */
+.modalRibbon {
+  position: absolute;
+  left: 50%;
+  top: 10.5%;
+  transform: translate(-50%, -50%);
+  width: 58%;
+  text-align: center;
+  font-size: clamp(1.05rem, 4.6vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(120, 20, 60, 0.45);
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Red circle number */
+.modalNumber {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  transform: translate(-50%, -50%);
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(1.55rem, 7vw, 2.15rem);
+  font-weight: 900;
+  color: #fff;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  line-height: 1;
+}
+
+/* Upper green bar */
+.modalInfoBar {
+  position: absolute;
+  left: 50%;
+  top: 63.5%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 12%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.modalPayoutValue {
+  font-size: clamp(1rem, 4.2vw, 1.25rem);
+  font-weight: 900;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lower green bar = CONTINUE */
+.modalBtn {
+  position: absolute;
+  left: 50%;
+  top: 82.4%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 12%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+  cursor: pointer;
+  box-shadow: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.modalBtn:active {
+  transform: translate(-50%, -50%) scale(0.97);
+}

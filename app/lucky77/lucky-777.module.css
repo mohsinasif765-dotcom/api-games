@@ -1,0 +1,892 @@
+.root {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  /* Outer letterbox — stage art lives on .hud */
+  background-color: #070312;
+  font-family: 'Outfit', system-ui, sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  max-width: 28rem;
+  margin: 0 auto;
+  pointer-events: none;
+  /* Full stage: spotlights → floor (reference match) */
+  background-color: #0a0418;
+  background-image: url('/lucky77/background-emage.jpeg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 100% 100%;
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  background: #070312;
+  pointer-events: all;
+  overflow: hidden;
+}
+
+/* Same phone column as .hud — portrait splash fills the stage */
+.splashInner {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: #12081f;
+}
+
+.splashBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Stretch portrait art to mobile stage (486×1024) */
+  object-fit: fill;
+  object-position: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Progress sits on splash art "Loading" spot (below logo, not screen bottom) */
+.splashFooter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 72%;
+  bottom: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  padding: 0 1.25rem;
+  transform: translateY(-50%);
+}
+
+.splashBarTrack {
+  width: min(14rem, 62vw);
+  height: 0.75rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.splashBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f48fb1, #ce93d8);
+  transition: width 0.15s ease-out;
+}
+
+.splashPct {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+
+.topBar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem 0.15rem;
+  /* Nudge icons lower from the top edge */
+  padding-top: max(1.85rem, calc(env(safe-area-inset-top) + 1.25rem));
+}
+
+.topLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.leftTools {
+  display: grid;
+  grid-template-columns: repeat(2, 2.35rem);
+  gap: 0.28rem 0.32rem;
+}
+
+.balanceBox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 213, 79, 0.55);
+  color: #fff8e1;
+  font-weight: 800;
+  font-size: 0.78rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.balanceCoin {
+  width: 1.05rem;
+  height: 1.05rem;
+  object-fit: contain;
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 7.5rem;
+}
+
+.profileAvatar {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 213, 79, 0.75);
+  background: rgba(20, 8, 40, 0.7);
+  flex-shrink: 0;
+}
+
+.profileName {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(255, 248, 231, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.sideTools {
+  justify-self: end;
+  display: grid;
+  grid-template-columns: repeat(2, 2.35rem);
+  gap: 0.28rem 0.32rem;
+  max-width: none;
+  align-content: start;
+}
+
+.toolBtn {
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: white;
+  cursor: pointer;
+  line-height: 0;
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toolBtn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.toolBtnMuted img {
+  filter: grayscale(0.85) brightness(0.75) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.toolBtn:active {
+  transform: scale(0.94);
+}
+
+.wheelStage {
+  position: relative;
+  /* Circular fram.png (1254²) — pointer sits inside the square */
+  width: min(86vw, 22rem);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+/* Phaser disc behind the gold frame — fill the ring opening */
+.canvasHost {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate3d(-50%, -50%, 0);
+  width: 86%;
+  aspect-ratio: 1;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: none;
+  will-change: transform;
+}
+
+.canvasHost canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.frameOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  z-index: 3;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Gold hub disc — above frame + wheel so it never disappears under canvas */
+.hubCenterOrb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate3d(-50%, -50%, 0);
+  width: 34%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  z-index: 8;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* Timer number on the gold center circle */
+.hubTimer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate3d(-50%, -50%, 0);
+  z-index: 9;
+  width: 34%;
+  aspect-ratio: 1;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  color: #ff1a1a;
+  font-weight: 900;
+  font-size: clamp(1.35rem, 7.2vw, 2rem);
+  line-height: 1;
+  pointer-events: none;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 10px rgba(255, 40, 40, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+.historyStrip {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  scrollbar-width: none;
+}
+
+.historyStrip::-webkit-scrollbar {
+  display: none;
+}
+
+.historyEmpty {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.historyDot {
+  position: relative;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.historyDot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.historyNew {
+  box-shadow: 0 0 0 1.5px #40c4ff;
+}
+
+.newTag {
+  /* Asset already has NEW badge — hide floating tag so it doesn't sit on betRow */
+  display: none;
+}
+
+.betRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  /* Match bet-panels.png gaps between the three gold frames */
+  gap: 0.55rem;
+  padding: 0.2rem 0.4rem 0.1rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  width: min(96%, 22rem);
+  margin-left: auto;
+  margin-right: auto;
+  aspect-ratio: 973 / 332;
+  flex-shrink: 0;
+  background-color: transparent;
+  background-image: url('/lucky77/bet-panels.webp');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+
+.betPanel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: white;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.betPanel:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.betPool {
+  position: absolute;
+  top: 1%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #ffe082;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  line-height: 1;
+}
+
+.betIcon {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  image-rendering: auto;
+}
+
+.betMult {
+  position: absolute;
+  bottom: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #ffeb3b;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  line-height: 1;
+}
+
+.footer {
+  position: relative;
+  width: min(100%, 28rem);
+  margin: 0.35rem 0 0;
+  /* trimmed result.png */
+  aspect-ratio: 1020 / 278;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-bottom: max(0.2rem, env(safe-area-inset-bottom));
+  z-index: 2;
+}
+
+.footerBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  z-index: 0;
+}
+
+.footerResults {
+  position: absolute;
+  z-index: 2;
+  /* After baked "Result:" on top strip */
+  left: 20%;
+  right: 4%;
+  top: 4.5%;
+  height: 18%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.chipRow {
+  position: absolute;
+  z-index: 2;
+  /* Fit all coins inside stadium pocket */
+  left: 3%;
+  top: 36%;
+  width: 58%;
+  height: 52%;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 0.2rem;
+  overflow: visible;
+  padding: 0 0.75rem;
+  scrollbar-width: none;
+}
+
+.chipRow::-webkit-scrollbar {
+  display: none;
+}
+
+.repeatHit {
+  position: absolute;
+  z-index: 3;
+  right: 2.5%;
+  top: 34%;
+  width: 23%;
+  aspect-ratio: 831 / 279;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.repeatHit:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.repeatImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.footerBalance {
+  position: absolute;
+  z-index: 2;
+  /* Under Repeat — nudge up toward button */
+  right: 3%;
+  bottom: 11%;
+  width: 23%;
+  aspect-ratio: 1004 / 283;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  display: block;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.footerBalanceBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.footerBalanceValue {
+  position: absolute;
+  left: 28%;
+  right: 8%;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: clamp(0.62rem, 2.5vw, 0.78rem);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chipBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.45rem;
+  height: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.82;
+  padding: 0;
+}
+
+/* Value already on coin art */
+.chipBtn span {
+  display: none;
+}
+
+.chipBtn img {
+  width: 2.45rem;
+  height: 2.45rem;
+  object-fit: contain;
+  display: block;
+}
+
+.chipSelected {
+  opacity: 1;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.9));
+  transform: translateY(-2px);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  z-index: 80;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.65rem;
+  background: rgba(20, 5, 40, 0.92);
+  border: 1px solid rgba(255, 213, 79, 0.55);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.banner {
+  position: fixed;
+  left: 50%;
+  top: max(12%, env(safe-area-inset-top) + 3.5rem);
+  transform: translateX(-50%);
+  z-index: 70;
+  padding: 0.55rem 1.2rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, #e91e63, #9c27b0);
+  color: white;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: bannerIn 0.35s ease-out;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.resultModal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 0 0.75rem;
+  /* Keep card above footer like reference */
+  padding-bottom: max(7rem, env(safe-area-inset-bottom));
+  background: rgba(8, 0, 20, 0.55);
+  animation: popIn 0.3s ease-out;
+  pointer-events: none;
+}
+
+.resultCard {
+  position: relative;
+  width: min(90vw, 21rem);
+  aspect-ratio: 737 / 617;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+}
+
+.resultBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.resultOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Positions measured from popup.png (737×617) hole/box pixels */
+
+.resultTitle {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 1.4%;
+  height: 7.2%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+  font-weight: 900;
+  color: #3b1a5c;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.resultSub {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 11.2%;
+  text-align: center;
+  font-size: clamp(0.55rem, 2.4vw, 0.68rem);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Each podium column: avatar in gold ring, name on ribbon, Bet/Win in art boxes */
+.podiumCol {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.podiumCol2 {
+  left: 10.04%;
+  width: 18.18%;
+}
+
+.podiumCol1 {
+  left: 40.3%;
+  width: 18.86%;
+}
+
+.podiumCol3 {
+  left: 71.1%;
+  width: 18.45%;
+}
+
+.podiumAvatarWrap {
+  position: absolute;
+  left: 50%;
+  top: 38.4%;
+  width: 90%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(20, 8, 40, 0.9);
+}
+
+.podiumCol1 .podiumAvatarWrap {
+  top: 38.25%;
+  width: 92%;
+}
+
+.podiumAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+/* Name on silver/gold/bronze ribbon */
+.podiumName {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 50.2%;
+  height: 4.4%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: clamp(0.5rem, 2.2vw, 0.62rem);
+  font-weight: 800;
+  color: #2a1038;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.podiumCol1 .podiumName {
+  font-size: clamp(0.52rem, 2.3vw, 0.66rem);
+}
+
+.statBet,
+.statWin {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.48rem, 2.1vw, 0.58rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statBet {
+  top: 58.8%;
+  height: 5.7%;
+}
+
+.statWin {
+  top: 66.9%;
+  height: 5.8%;
+}
+
+/* Bottom bar — square gold frame + name + Bet/Win boxes */
+.meAvatar {
+  position: absolute;
+  left: 9.1%;
+  top: 80.1%;
+  width: 11.3%;
+  height: 12.4%;
+  border-radius: 0.35rem;
+  object-fit: cover;
+  object-position: center top;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.meName {
+  position: absolute;
+  left: 22.5%;
+  right: 32%;
+  top: 82%;
+  height: 10%;
+  display: flex;
+  align-items: center;
+  font-size: clamp(0.7rem, 3vw, 0.88rem);
+  font-weight: 800;
+  color: #fff8e7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+
+.meStatBet,
+.meStatWin {
+  position: absolute;
+  left: 70%;
+  width: 21.3%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.48rem, 2.1vw, 0.58rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meStatBet {
+  top: 79.25%;
+  height: 5.7%;
+}
+
+.meStatWin {
+  top: 87.35%;
+  height: 5.8%;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
