@@ -2,6 +2,11 @@ import { supabase } from '@/lib/supabase';
 import { placeBetUnified } from '@/lib/placeBet';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import {
+  bootstrapPlayerSession,
+  usingApiKeyAuth,
+} from '@/lib/bootstrapPlayerSession';
+import { fetchGameRound, fetchMe } from '@/lib/game-api-client';
+import {
   GameLiveSnapshot,
   getAuthTokenFromUrl,
   getGameSocket,
@@ -155,61 +160,83 @@ export class GreedyBabyController {
   async start() {
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('token');
-    let user = await applyWebViewAccessToken(token);
-    if (!user) {
-      const {
-        data: { user: existing },
-      } = await supabase.auth.getUser();
-      user = existing;
-    }
-    if (user) {
-      this.userId = user.id;
-      await this.refreshBalance();
-    }
 
-    const { data: configData } = await supabase
-      .from('game_configs')
-      .select('id')
-      .eq('slug', GAME_SLUG)
-      .single();
+    const session = await bootstrapPlayerSession(GAME_SLUG);
+    if (session.apiKey && session.playerId) {
+      this.userId = session.playerId;
+      this.balance = session.balance;
+      this.emit('balance', this.balance);
+    } else {
+      let user = await applyWebViewAccessToken(token);
+      if (!user) {
+        const {
+          data: { user: existing },
+        } = await supabase.auth.getUser();
+        user = existing;
+      }
+      if (user) {
+        this.userId = user.id;
+        await this.refreshBalance();
+      }
+    }
 
     let round: GameRound | null = null;
-    if (configData) {
-      this.gameId = configData.id;
 
-      const { data: histData } = await supabase
-        .from('game_rounds')
-        .select('winner_result')
-        .eq('game_id', configData.id)
-        .eq('status', 'finished')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (histData) {
-        this.history = histData
-          .map((h) => h.winner_result)
-          .filter(Boolean)
-          .reverse() as string[];
-      }
-
-      if (this.userId) await this.refreshProfit();
-
-      const { data: roundData } = await supabase
-        .from('game_rounds')
-        .select('*')
-        .eq('game_id', configData.id)
-        .neq('status', 'finished')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (roundData) {
-        round = roundData as GameRound;
+    if (session.gameId) {
+      this.gameId = session.gameId;
+      if (session.round?.id) {
+        round = session.round as unknown as GameRound;
         this.currentRound = round;
+        if (session.serverNow) {
+          const serverMs = new Date(session.serverNow).getTime();
+          if (Number.isFinite(serverMs)) this.skewMs = Date.now() - serverMs;
+        }
         this.seedClockFromRound(round);
+      }
+    } else {
+      const { data: configData } = await supabase
+        .from('game_configs')
+        .select('id')
+        .eq('slug', GAME_SLUG)
+        .single();
+
+      if (configData) {
+        this.gameId = configData.id;
+
+        const { data: histData } = await supabase
+          .from('game_rounds')
+          .select('winner_result')
+          .eq('game_id', configData.id)
+          .eq('status', 'finished')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (histData) {
+          this.history = histData
+            .map((h) => h.winner_result)
+            .filter(Boolean)
+            .reverse() as string[];
+        }
+
+        if (this.userId) await this.refreshProfit();
+
+        const { data: roundData } = await supabase
+          .from('game_rounds')
+          .select('*')
+          .eq('game_id', configData.id)
+          .neq('status', 'finished')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (roundData) {
+          round = roundData as GameRound;
+          this.currentRound = round;
+          this.seedClockFromRound(round);
+        }
       }
     }
 
-    this.subscribeBalance();
+    if (!usingApiKeyAuth()) this.subscribeBalance();
     this.connectSocket();
     this.startRoundFallback();
     this.startCountdownLoop();
@@ -433,6 +460,14 @@ export class GreedyBabyController {
 
   private async refreshBalance() {
     if (!this.userId) return;
+    if (usingApiKeyAuth()) {
+      const me = await fetchMe();
+      if (me.ok) {
+        this.balance = me.data.player.coins;
+        this.emit('balance', this.balance);
+      }
+      return;
+    }
     const coins = await fetchUserCoins(this.userId);
     if (coins == null) return;
     this.balance = coins;
@@ -557,6 +592,9 @@ export class GreedyBabyController {
       void this.pollRoundFromDb();
     }, 900);
 
+    // API-key webviews can't rely on Supabase realtime RLS
+    if (usingApiKeyAuth()) return;
+
     this.roundsChannel = supabase
       .channel(`greedy_baby_phaser_rounds_${this.gameId}`)
       .on(
@@ -580,6 +618,18 @@ export class GreedyBabyController {
 
   private async pollRoundFromDb() {
     if (!this.gameId || this.destroyed) return;
+
+    if (usingApiKeyAuth()) {
+      const res = await fetchGameRound(GAME_SLUG);
+      if (!res.ok || !res.data.round || this.destroyed) return;
+      if (res.data.server_now) {
+        const serverMs = new Date(res.data.server_now).getTime();
+        if (Number.isFinite(serverMs)) this.skewMs = Date.now() - serverMs;
+      }
+      this.applyLiveRound(res.data.round as unknown as GameRound, false);
+      return;
+    }
+
     const { data } = await supabase
       .from('game_rounds')
       .select(
