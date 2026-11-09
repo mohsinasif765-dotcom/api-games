@@ -3,9 +3,12 @@ import {
   fetchGameRound,
   fetchMe,
   getApiKeyFromUrl,
+  getSsTokenFromUrl,
   getStoredApiKey,
   storeApiKey,
+  storeSsToken,
 } from '@/lib/game-api-client';
+import { notifyReady } from '@/lib/flutter-bridge';
 
 export type BootstrappedSession = {
   apiKey: string | null;
@@ -27,6 +30,8 @@ export async function bootstrapPlayerSession(
 ): Promise<BootstrappedSession> {
   const fromUrl = getApiKeyFromUrl();
   if (fromUrl) storeApiKey(fromUrl);
+  const ssFromUrl = getSsTokenFromUrl();
+  if (ssFromUrl) storeSsToken(ssFromUrl);
   const apiKey = getStoredApiKey();
 
   let playerId: string | null = null;
@@ -57,6 +62,16 @@ export async function bootstrapPlayerSession(
       round = (roundRes.data.round as Record<string, unknown>) || null;
       serverNow = roundRes.data.server_now;
     }
+  }
+
+  try {
+    notifyReady({
+      slug,
+      playerId,
+      hasApiKey: !!apiKey,
+    });
+  } catch {
+    // ignore bridge errors during boot
   }
 
   return {

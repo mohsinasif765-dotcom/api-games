@@ -6,7 +6,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 ALTER TABLE game_bets
   ADD COLUMN IF NOT EXISTS payout_amount bigint NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS is_win boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_win boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS merchant_debit_req text,
+  ADD COLUMN IF NOT EXISTS merchant_credit_status text NOT NULL DEFAULT 'none';
 
 ALTER TABLE game_rounds
   ADD COLUMN IF NOT EXISTS round_number bigint;
@@ -65,6 +67,11 @@ DECLARE
   advanced int := 0;
   bet_secs int;
   spin_secs int;
+  v_rate numeric(24, 12);
+  v_bal numeric(24, 8);
+  v_fee numeric(24, 8);
+  v_charge numeric(24, 8);
+  v_new_bal numeric(24, 8);
 BEGIN
   FOR cfg IN
     SELECT gc.id AS game_id, gc.tenant_id, gc.meta
@@ -134,7 +141,15 @@ BEGIN
       IF bet.bet_option = winner THEN
         payout := FLOOR(bet.amount * mult)::bigint;
         UPDATE game_bets
-        SET is_win = true, payout_amount = payout
+        SET is_win = true,
+            payout_amount = payout,
+            merchant_credit_status = CASE
+              WHEN EXISTS (
+                SELECT 1 FROM tenants t
+                WHERE t.id = bet.tenant_id AND t.wallet_mode = 'merchant_callback'
+              ) THEN 'pending'
+              ELSE 'none'
+            END
         WHERE id = bet.id;
         UPDATE players
         SET coins = coins + payout
@@ -143,6 +158,45 @@ BEGIN
         UPDATE game_bets
         SET is_win = false, payout_amount = 0
         WHERE id = bet.id;
+
+        -- SaaS fee: full user coin loss × tenant coin_to_usdt_rate
+        IF bet.tenant_id IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM tenant_ledger tl
+             WHERE tl.kind = 'loss_fee' AND tl.ref_bet_id = bet.id
+           )
+        THEN
+          SELECT coin_to_usdt_rate, usdt_balance
+            INTO v_rate, v_bal
+          FROM tenants
+          WHERE id = bet.tenant_id
+          FOR UPDATE;
+
+          IF FOUND AND COALESCE(v_rate, 0) > 0 AND bet.amount > 0 THEN
+            v_fee := (bet.amount::numeric) * v_rate;
+            v_charge := LEAST(v_fee, GREATEST(v_bal, 0));
+            v_new_bal := GREATEST(v_bal - v_charge, 0);
+
+            UPDATE tenants
+            SET usdt_balance = v_new_bal,
+                status = CASE
+                  WHEN v_charge < v_fee THEN 'suspended'
+                  ELSE status
+                END
+            WHERE id = bet.tenant_id;
+
+            IF v_charge > 0 THEN
+              INSERT INTO tenant_ledger (
+                tenant_id, kind, amount_usdt, balance_after,
+                ref_bet_id, ref_round_id, note
+              )
+              VALUES (
+                bet.tenant_id, 'loss_fee', -v_charge, v_new_bal,
+                bet.id, rnd.id, 'user loss fee'
+              );
+            END IF;
+          END IF;
+        END IF;
       END IF;
     END LOOP;
 

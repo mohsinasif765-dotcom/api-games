@@ -1,5 +1,10 @@
-import { query } from './db';
+import { query, getPool } from './db';
 import type { AuthContext } from './api-keys';
+import {
+  loadTenantBilling,
+  merchantChangeBalance,
+  newRequestId,
+} from './merchant-callbacks';
 
 export type PlaceBetInput = {
   auth: AuthContext;
@@ -18,7 +23,50 @@ export async function placeBet(input: PlaceBetInput) {
     throw Object.assign(new Error('bet_option required'), { status: 400 });
   }
 
-  const client = await (await import('./db')).getPool().connect();
+  const tenant = await loadTenantBilling(input.auth.tenant.id);
+  if (!tenant || tenant.status !== 'active') {
+    throw Object.assign(new Error('Tenant suspended or missing'), { status: 403 });
+  }
+  if (Number(tenant.usdt_balance) <= 0 && Number(tenant.coin_to_usdt_rate) > 0) {
+    throw Object.assign(new Error('Tenant prepaid USDT exhausted'), {
+      status: 402,
+    });
+  }
+
+  const merchantMode = tenant.wallet_mode === 'merchant_callback';
+  const externalId = input.auth.player.external_id?.trim();
+  if (merchantMode && !externalId) {
+    throw Object.assign(
+      new Error('Player external_id required for merchant wallet'),
+      { status: 400 },
+    );
+  }
+
+  let merchantRequestId: string | null = null;
+  let merchantCoins: number | undefined;
+
+  if (merchantMode && externalId) {
+    merchantRequestId = newRequestId('debit');
+    const sstokenRes = await query<{ sstoken: string | null }>(
+      `SELECT sstoken FROM players WHERE id = $1`,
+      [input.auth.player.id],
+    );
+    const debit = await merchantChangeBalance(tenant, {
+      externalId,
+      amount: -amount,
+      requestId: merchantRequestId,
+      reason: `bet:${input.slug}`,
+      sstoken: sstokenRes.rows[0]?.sstoken,
+    });
+    if (!debit.ok) {
+      throw Object.assign(new Error(debit.error || 'Merchant debit failed'), {
+        status: 402,
+      });
+    }
+    merchantCoins = debit.coins;
+  }
+
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
 
@@ -72,19 +120,35 @@ export async function placeBet(input: PlaceBetInput) {
       `SELECT coins FROM players WHERE id = $1 FOR UPDATE`,
       [input.auth.player.id],
     );
-    const coins = Number(playerRes.rows[0]?.coins ?? 0);
-    if (coins < amount) {
-      throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+
+    if (merchantMode) {
+      const mirrored =
+        merchantCoins != null
+          ? merchantCoins
+          : Number(playerRes.rows[0]?.coins ?? 0) - amount;
+      if (mirrored < 0) {
+        throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+      }
+      await client.query(`UPDATE players SET coins = $1 WHERE id = $2`, [
+        Math.max(0, mirrored),
+        input.auth.player.id,
+      ]);
+    } else {
+      const coins = Number(playerRes.rows[0]?.coins ?? 0);
+      if (coins < amount) {
+        throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+      }
+      await client.query(`UPDATE players SET coins = coins - $1 WHERE id = $2`, [
+        amount,
+        input.auth.player.id,
+      ]);
     }
 
-    await client.query(`UPDATE players SET coins = coins - $1 WHERE id = $2`, [
-      amount,
-      input.auth.player.id,
-    ]);
-
     const betRes = await client.query<{ id: string; created_at: string }>(
-      `INSERT INTO game_bets (tenant_id, round_id, player_id, bet_option, amount)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO game_bets (
+         tenant_id, round_id, player_id, bet_option, amount, merchant_debit_req
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, created_at`,
       [
         input.auth.tenant.id,
@@ -92,6 +156,7 @@ export async function placeBet(input: PlaceBetInput) {
         input.auth.player.id,
         input.option.trim(),
         amount,
+        merchantRequestId,
       ],
     );
 
@@ -117,6 +182,18 @@ export async function placeBet(input: PlaceBetInput) {
     };
   } catch (e) {
     await client.query('ROLLBACK');
+    if (merchantMode && merchantRequestId && externalId) {
+      try {
+        await merchantChangeBalance(tenant, {
+          externalId,
+          amount,
+          requestId: newRequestId(`rev:${merchantRequestId}`),
+          reason: 'bet_rollback',
+        });
+      } catch (revErr) {
+        console.error('[placeBet] merchant reverse failed', revErr);
+      }
+    }
     throw e;
   } finally {
     client.release();
@@ -154,4 +231,105 @@ export async function adjustBalance(
     throw Object.assign(new Error('Player not found'), { status: 404 });
   }
   return Number(rows[0].coins);
+}
+
+/** Process pending merchant win credits (idempotent). */
+export async function settlePendingMerchantCredits(limit = 40): Promise<{
+  processed: number;
+  failed: number;
+}> {
+  const client = await getPool().connect();
+  let processed = 0;
+  let failed = 0;
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query<{
+      bet_id: string;
+      payout_amount: string | number;
+      player_id: string;
+      tenant_id: string;
+      external_id: string | null;
+      sstoken: string | null;
+    }>(
+      `SELECT
+         b.id AS bet_id,
+         b.payout_amount,
+         b.player_id,
+         b.tenant_id,
+         p.external_id,
+         p.sstoken
+       FROM game_bets b
+       JOIN players p ON p.id = b.player_id
+       WHERE b.merchant_credit_status = 'pending'
+         AND b.is_win = true
+         AND b.payout_amount > 0
+       ORDER BY b.created_at ASC
+       LIMIT $1
+       FOR UPDATE OF b SKIP LOCKED`,
+      [limit],
+    );
+    await client.query('COMMIT');
+
+    for (const row of rows) {
+      const tenant = await loadTenantBilling(row.tenant_id);
+      if (!tenant || tenant.wallet_mode !== 'merchant_callback') {
+        await query(
+          `UPDATE game_bets SET merchant_credit_status = 'none' WHERE id = $1`,
+          [row.bet_id],
+        );
+        continue;
+      }
+      const ext = row.external_id?.trim();
+      if (!ext) {
+        await query(
+          `UPDATE game_bets SET merchant_credit_status = 'failed' WHERE id = $1`,
+          [row.bet_id],
+        );
+        failed += 1;
+        continue;
+      }
+
+      const payout = Math.floor(Number(row.payout_amount));
+      const credit = await merchantChangeBalance(tenant, {
+        externalId: ext,
+        amount: payout,
+        requestId: `payout:${row.bet_id}`,
+        reason: 'win_payout',
+        sstoken: row.sstoken,
+      });
+
+      if (!credit.ok) {
+        await query(
+          `UPDATE game_bets SET merchant_credit_status = 'failed' WHERE id = $1`,
+          [row.bet_id],
+        );
+        failed += 1;
+        continue;
+      }
+
+      if (credit.coins != null) {
+        await query(`UPDATE players SET coins = $1 WHERE id = $2`, [
+          credit.coins,
+          row.player_id,
+        ]);
+      }
+
+      await query(
+        `UPDATE game_bets SET merchant_credit_status = 'done' WHERE id = $1`,
+        [row.bet_id],
+      );
+      processed += 1;
+    }
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  return { processed, failed };
 }

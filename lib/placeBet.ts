@@ -1,3 +1,4 @@
+import { openWallet } from './flutter-bridge';
 import { supabase } from './supabase';
 import { getStoredApiKey, placeGameBet } from './game-api-client';
 
@@ -18,7 +19,10 @@ export async function placeBetUnified(params: {
       amount: params.amount,
       roundId: params.roundId,
     });
-    if (!res.ok) return { error: res.error };
+    if (!res.ok) {
+      if (res.status === 402) openWallet();
+      return { error: res.error };
+    }
     return { error: null, balance: res.data.balance };
   }
 

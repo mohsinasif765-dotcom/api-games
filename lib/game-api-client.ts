@@ -12,7 +12,12 @@ export type MeResponse = {
     external_id: string | null;
     coins: number;
   };
-  tenant: { id: string; slug: string; name: string };
+  tenant: {
+    id: string;
+    slug: string;
+    name: string;
+    wallet_mode?: 'local' | 'merchant_callback';
+  };
   scopes: string[];
 };
 
@@ -23,6 +28,27 @@ function apiBase() {
 export function getApiKeyFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   return new URLSearchParams(window.location.search).get('apiKey')?.trim() || null;
+}
+
+export function getSsTokenFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    new URLSearchParams(window.location.search).get('sstoken')?.trim() || null
+  );
+}
+
+export function storeSsToken(sstoken: string) {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem('game_sstoken', sstoken);
+}
+
+export function getStoredSsToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    getSsTokenFromUrl() ||
+    window.sessionStorage.getItem('game_sstoken') ||
+    null
+  );
 }
 
 export function getTenantFromUrl(): string | null {

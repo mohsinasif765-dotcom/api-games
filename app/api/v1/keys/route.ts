@@ -26,8 +26,14 @@ export async function POST(req: Request) {
     const coins = Math.max(0, Math.floor(Number(body.coins ?? 100000)));
     const scopes = body.scopes?.length ? body.scopes : ['game:play'];
 
-    const tenantRes = await query<{ id: string; slug: string; name: string }>(
-      `SELECT id, slug, name FROM tenants WHERE slug = $1 AND status = 'active' LIMIT 1`,
+    const tenantRes = await query<{
+      id: string;
+      slug: string;
+      name: string;
+      wallet_mode: string;
+    }>(
+      `SELECT id, slug, name, COALESCE(wallet_mode, 'local') AS wallet_mode
+       FROM tenants WHERE slug = $1 AND status = 'active' LIMIT 1`,
       [tenantSlug],
     );
     const tenant = tenantRes.rows[0];
@@ -58,9 +64,18 @@ export async function POST(req: Request) {
         api_key: key.raw,
         key_prefix: key.prefix,
         player_id: playerId,
-        tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
+        tenant: {
+          id: tenant.id,
+          slug: tenant.slug,
+          name: tenant.name,
+          wallet_mode: tenant.wallet_mode,
+        },
         scopes,
         coins,
+        hint:
+          tenant.wallet_mode === 'merchant_callback'
+            ? 'Use POST /api/v1/session with issue_sstoken for merchant launch'
+            : undefined,
       },
       { status: 201 },
     );

@@ -1,6 +1,7 @@
 # Android / Flutter JS Bridge
 
-H5 games talk to the host app through `lib/flutter-bridge.ts`.
+H5 games talk to the host app through `lib/flutter-bridge.ts`.  
+**Bridge is UX only** — never trust it for coin debit/credit. Money goes through `/api/v1` (+ merchant callbacks when enabled). See `docs/merchant-callbacks.md`.
 
 ## From H5 → Native
 
@@ -13,6 +14,23 @@ H5 games talk to the host app through `lib/flutter-bridge.ts`.
 | `notifyReady({...})` | Game finished loading |
 
 Also available on `window.GameBridge`.
+
+### Host checklist
+
+1. Inject JS interface as `Android` / `AndroidBridge` / `FunPlayAndroid`, or Flutter `callHandler`.
+2. Implement all five helpers above.
+3. Launch WebView with gateway session query (preferred):
+
+```
+https://YOUR_GAMES_HOST/greedylion?apiKey=pk_live_…&tenant=demo
+https://YOUR_GAMES_HOST/greedylion?apiKey=pk_live_…&sstoken=…&tenant=demo
+```
+
+Mint session with admin `POST /api/v1/session` (`x-admin-secret`).
+
+4. On `openWallet`, show your recharge sheet; when user returns, H5 will refresh via `/me`.
+5. On `notifyReady`, hide native splash/loader.
+6. On HTTP 402 from bets, H5 already calls `openWallet()`.
 
 ## Android WebView setup (Kotlin)
 
@@ -66,12 +84,12 @@ Existing handlers still work:
 - `haptic`
 - `notifyReady`
 
-## Auth token
+## Legacy Supabase token
 
-Pass Supabase access token only (never refresh token):
+Still supported for older shells:
 
 ```
 /football?token=<access_token>
 ```
 
-Applied via `applyWebViewAccessToken` in each game page.
+Prefer `apiKey` + `tenant` for the B2B gateway.
