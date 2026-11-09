@@ -18,7 +18,7 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
     this.load.image('splash', '/footbal2/seven.webp');
-    this.load.image('wing_spark', '/gready-king/wing-spark.webp');
+    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
 
     this.load.on('progress', (value: number) => {
       controller?.setLoadProgress(value * 100);

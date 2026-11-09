@@ -253,7 +253,7 @@
   margin: 0.15rem auto 0;
   flex-shrink: 0;
   pointer-events: none;
-  background: url('/gready-king/main-stand.webp') center bottom / contain no-repeat;
+  background: url('/greedy-lion/main-stand.webp') center bottom / contain no-repeat;
   overflow: visible;
   z-index: 3;
 }
@@ -510,7 +510,7 @@
   border-radius: 0;
   padding: 0;
   background-color: transparent;
-  background-image: url('/gready-king/unselect-coin.webp');
+  background-image: url('/greedy-lion/unselect-coin.webp');
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
@@ -528,7 +528,7 @@
 }
 
 .chipBtnActive {
-  background-image: url('/gready-king/slected-coin.webp');
+  background-image: url('/greedy-lion/slected-coin.webp');
   color: #fff;
   transform: translateY(-2px);
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28));
@@ -564,7 +564,7 @@
   flex-shrink: 0;
   z-index: 2;
   background-color: transparent;
-  background-image: url('/gready-king/bottom-panel.webp');
+  background-image: url('/greedy-lion/bottom-panel.webp');
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: 100% 100%;

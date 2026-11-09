@@ -14,7 +14,7 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    this.load.image('wing_spark', '/gready-king/wing-spark.webp');
+    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
     this.load.image(WHEEL_ART_KEY, WHEEL_ART);
     for (const opt of BET_OPTIONS) {
       this.load.image(opt.textureKey, opt.image);

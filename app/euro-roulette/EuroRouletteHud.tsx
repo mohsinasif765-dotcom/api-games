@@ -26,7 +26,7 @@ function chipImageForAmount(amount: number): string {
   const exact = CHIPS.find((c) => c.amount === amount);
   if (exact) return exact.image;
   // nearest lower chip face for stacked bet totals
-  let best = CHIPS[0];
+  let best: (typeof CHIPS)[number] = CHIPS[0];
   for (const c of CHIPS) {
     if (c.amount <= amount) best = c;
   }

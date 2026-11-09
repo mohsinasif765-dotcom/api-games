@@ -10,6 +10,8 @@ import {
 export type BootstrappedSession = {
   apiKey: string | null;
   playerId: string | null;
+  username: string | null;
+  avatarUrl: string | null;
   balance: number;
   gameId: string | null;
   round: Record<string, unknown> | null;
@@ -28,11 +30,15 @@ export async function bootstrapPlayerSession(
   const apiKey = getStoredApiKey();
 
   let playerId: string | null = null;
+  let username: string | null = null;
+  let avatarUrl: string | null = null;
   let balance = 0;
   if (apiKey) {
     const me = await fetchMe(apiKey);
     if (me.ok) {
       playerId = me.data.player.id;
+      username = me.data.player.username;
+      avatarUrl = me.data.player.avatar_url;
       balance = me.data.player.coins;
     }
   }
@@ -53,7 +59,16 @@ export async function bootstrapPlayerSession(
     }
   }
 
-  return { apiKey, playerId, balance, gameId, round, serverNow };
+  return {
+    apiKey,
+    playerId,
+    username,
+    avatarUrl,
+    balance,
+    gameId,
+    round,
+    serverNow,
+  };
 }
 
 export function usingApiKeyAuth(): boolean {

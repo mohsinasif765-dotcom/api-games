@@ -282,7 +282,7 @@ export class GreedyBabyController {
     this.audioUnlocked = true;
     try {
       if (!this.tickAudio) {
-        this.tickAudio = new Audio('/gready-king/sound/spin-tick.mp3');
+        this.tickAudio = new Audio('/greedy-lion/sound/spin-tick.mp3');
         this.tickAudio.preload = 'auto';
         this.tickAudio.volume = 0.45;
         this.tickAudio.load();
@@ -321,11 +321,11 @@ export class GreedyBabyController {
         : `/sounds/${soundName}`;
       if (
         soundName === 'tick.mp3' ||
-        soundName === '/gready-king/sound/spin-tick.mp3' ||
+        soundName === '/greedy-lion/sound/spin-tick.mp3' ||
         soundName.endsWith('spin-tick.mp3')
       ) {
         if (!this.tickAudio) {
-          this.tickAudio = new Audio('/gready-king/sound/spin-tick.mp3');
+          this.tickAudio = new Audio('/greedy-lion/sound/spin-tick.mp3');
           this.tickAudio.volume = 0.45;
         }
         const a = this.tickAudio;
@@ -792,7 +792,7 @@ export class GreedyBabyController {
       durationMs: 5200,
       loops: 5,
       onIndex: (idx) => this.emit('spinIndex', idx),
-      onTick: () => this.playSound('/gready-king/sound/spin-tick.mp3'),
+      onTick: () => this.playSound('/greedy-lion/sound/spin-tick.mp3'),
       onComplete: finish,
     });
   }

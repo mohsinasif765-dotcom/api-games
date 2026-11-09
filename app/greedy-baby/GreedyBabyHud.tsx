@@ -163,21 +163,21 @@ export function GreedyBabyHud({
       <div className={styles.sky} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/gready-king/cloud1.webp"
+          src="/greedy-lion/cloud1.webp"
           alt=""
           className={`${styles.cloud} ${styles.cloudA}`}
           draggable={false}
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/gready-king/cloud2.webp"
+          src="/greedy-lion/cloud2.webp"
           alt=""
           className={`${styles.cloud} ${styles.cloudB}`}
           draggable={false}
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/gready-king/cloud1.webp"
+          src="/greedy-lion/cloud1.webp"
           alt=""
           className={`${styles.cloud} ${styles.cloudC}`}
           draggable={false}
@@ -293,7 +293,7 @@ export function GreedyBabyHud({
                   <span className={styles.betAmount}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/gready-king/botom.webp"
+                      src="/greedy-lion/botom.webp"
                       alt=""
                       className={styles.betAmountPlate}
                       draggable={false}
@@ -376,7 +376,7 @@ export function GreedyBabyHud({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/gready-king/result-sheet.webp"
+              src="/greedy-lion/result-sheet.webp"
               alt=""
               className={styles.resultSheetBg}
               draggable={false}

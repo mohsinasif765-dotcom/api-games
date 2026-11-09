@@ -16,8 +16,8 @@ type FlutterBridge = {
 };
 
 type AndroidMethodBridge = {
-  [key: string]: ((...args: unknown[]) => unknown) | undefined;
   postMessage?: (payload: string) => unknown;
+  [key: string]: unknown;
 };
 
 type BridgeWindow = Window & {

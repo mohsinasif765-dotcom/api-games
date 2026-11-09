@@ -41,7 +41,12 @@ export default function GreedyKingPhaserPage() {
         setLoadProgress(pct);
         if (pct >= 100) {
           window.setTimeout(() => {
-            if (!destroyed) setSplash(false);
+            if (!destroyed) {
+              setSplash(false);
+              void import('@/lib/flutter-bridge').then(({ notifyReady }) =>
+                notifyReady({ game: 'greedylion' }),
+              );
+            }
           }, 450);
         }
       });
@@ -57,6 +62,17 @@ export default function GreedyKingPhaserPage() {
         parent: hostRef.current,
         controller: instance,
       });
+
+      // Failsafe: never leave splash stuck if progress events were missed
+      window.setTimeout(() => {
+        if (!destroyed) {
+          setLoadProgress((p) => (p < 100 ? 100 : p));
+          setSplash(false);
+          void import('@/lib/flutter-bridge').then(({ notifyReady }) =>
+            notifyReady({ game: 'greedylion' }),
+          );
+        }
+      }, 8000);
     };
 
     void boot();

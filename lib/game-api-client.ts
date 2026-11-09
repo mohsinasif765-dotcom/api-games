@@ -134,3 +134,46 @@ export async function placeGameBet(params: {
     },
   });
 }
+
+export type GameHistoryRow = {
+  roundId: string;
+  roundNumber: number | null;
+  playedAt: string;
+  bets: Array<{ option: string; amount: number }>;
+  winnerId: string | null;
+  resultAmount: number;
+};
+
+export async function fetchGameHistory(slug: string, limit = 40) {
+  return gameApiFetch<{ rows: GameHistoryRow[] }>(
+    `/games/${encodeURIComponent(slug)}/history?limit=${limit}`,
+  );
+}
+
+export type RevenueRankRow = {
+  rank: number;
+  playerId: string;
+  username: string;
+  avatarUrl: string | null;
+  revenue: number;
+};
+
+export async function fetchRevenueRank(slug: string, limit = 20) {
+  return gameApiFetch<{ rows: RevenueRankRow[] }>(
+    `/games/${encodeURIComponent(slug)}/revenue-rank?limit=${limit}`,
+  );
+}
+
+export type RoundRankRow = {
+  rank: number;
+  playerId: string;
+  username: string;
+  avatarUrl: string | null;
+  amount: number;
+};
+
+export async function fetchRoundRank(slug: string, roundId: string, limit = 3) {
+  return gameApiFetch<{ rows: RoundRankRow[] }>(
+    `/games/${encodeURIComponent(slug)}/round-rank?roundId=${encodeURIComponent(roundId)}&limit=${limit}`,
+  );
+}

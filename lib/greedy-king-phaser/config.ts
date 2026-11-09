@@ -13,7 +13,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Chicken',
     multiplier: 45,
     color: '#E67E22',
-    image: '/gready-king/chicken.webp',
+    image: '/greedy-lion/chicken.webp',
     textureKey: 'food_chicken',
   },
   {
@@ -21,7 +21,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Strawberry',
     multiplier: 5,
     color: '#E74C3C',
-    image: '/gready-king/strawberry.webp',
+    image: '/greedy-lion/strawberry.webp',
     textureKey: 'food_strawberry',
   },
   {
@@ -29,7 +29,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Corn',
     multiplier: 5,
     color: '#F1C40F',
-    image: '/gready-king/corn.webp',
+    image: '/greedy-lion/corn.webp',
     textureKey: 'food_corn',
   },
   {
@@ -37,7 +37,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Palak',
     multiplier: 5,
     color: '#27AE60',
-    image: '/gready-king/palak.webp',
+    image: '/greedy-lion/palak.webp',
     textureKey: 'food_palak',
   },
   {
@@ -45,7 +45,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Grapes',
     multiplier: 5,
     color: '#8E44AD',
-    image: '/gready-king/grapes.webp',
+    image: '/greedy-lion/grapes.webp',
     textureKey: 'food_grapes',
   },
   {
@@ -53,7 +53,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Beef',
     multiplier: 10,
     color: '#C0392B',
-    image: '/gready-king/beef.webp',
+    image: '/greedy-lion/beef.webp',
     textureKey: 'food_beef',
   },
   {
@@ -61,7 +61,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Fish',
     multiplier: 15,
     color: '#3498DB',
-    image: '/gready-king/fish.webp',
+    image: '/greedy-lion/fish.webp',
     textureKey: 'food_fish',
   },
   {
@@ -69,7 +69,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     name: 'Star Fish',
     multiplier: 25,
     color: '#E74C3C',
-    image: '/gready-king/star-fish.webp',
+    image: '/greedy-lion/star-fish.webp',
     textureKey: 'food_starfish',
   },
 ];

@@ -18,10 +18,10 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
     this.load.image('logo', '/pizza/greedy_king_logo.webp');
-    this.load.image('bet_box', '/gready-king/bet-box.webp');
+    this.load.image('bet_box', '/greedy-lion/bet-box.webp');
     this.load.image('bet_coin', '/fruit-party/chips/coin_gold.webp');
-    this.load.image('spin_hand', '/gready-king/spin-hand.webp');
-    this.load.image('wing_spark', '/gready-king/wing-spark.webp');
+    this.load.image('spin_hand', '/greedy-lion/spin-hand.webp');
+    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
     for (const food of FOOD_ITEMS) {
       this.load.image(food.textureKey, food.image);
     }
