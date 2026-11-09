@@ -1,3 +1,4 @@
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { fetchRoundRanking } from '@/lib/server/round-rank';
 import { jsonError, jsonOk, requirePlayerAuth } from '@/lib/server/http';
 
@@ -14,7 +15,11 @@ export async function GET(
     await ctx.params;
     const url = new URL(req.url);
     const roundId = url.searchParams.get('roundId')?.trim();
-    if (!roundId) return jsonError('roundId required', 400);
+    if (!roundId) {
+      return jsonError('roundId required', 400, {
+        code: ApiErrorCode.ROUND_ID_REQUIRED,
+      });
+    }
     const limit = Number(url.searchParams.get('limit') || 3);
 
     const rows = await fetchRoundRanking({

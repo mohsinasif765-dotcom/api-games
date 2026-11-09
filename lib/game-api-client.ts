@@ -2,6 +2,7 @@ export type GameApiError = {
   ok: false;
   error: string;
   status: number;
+  code?: string;
 };
 
 export type MeResponse = {
@@ -97,7 +98,8 @@ export async function gameApiFetch<T>(
     cache: 'no-store',
   });
 
-  let json: { ok?: boolean; data?: T; error?: string } | null = null;
+  let json: { ok?: boolean; data?: T; error?: string; code?: string } | null =
+    null;
   try {
     json = await res.json();
   } catch {
@@ -109,6 +111,7 @@ export async function gameApiFetch<T>(
       ok: false,
       error: json?.error || `Request failed (${res.status})`,
       status: res.status,
+      code: json?.code,
     };
   }
 

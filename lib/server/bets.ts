@@ -1,5 +1,6 @@
 import { query, getPool } from './db';
 import type { AuthContext } from './api-keys';
+import { ApiErrorCode, apiError } from './error-codes';
 import {
   loadTenantBilling,
   merchantChangeBalance,
@@ -17,28 +18,35 @@ export type PlaceBetInput = {
 export async function placeBet(input: PlaceBetInput) {
   const amount = Math.floor(Number(input.amount));
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw Object.assign(new Error('Invalid bet amount'), { status: 400 });
+    throw apiError('Invalid bet amount', 400, ApiErrorCode.INVALID_BET_AMOUNT);
   }
   if (!input.option?.trim()) {
-    throw Object.assign(new Error('bet_option required'), { status: 400 });
+    throw apiError('bet_option required', 400, ApiErrorCode.BET_OPTION_REQUIRED);
   }
 
   const tenant = await loadTenantBilling(input.auth.tenant.id);
   if (!tenant || tenant.status !== 'active') {
-    throw Object.assign(new Error('Tenant suspended or missing'), { status: 403 });
+    throw apiError(
+      'Tenant suspended or missing',
+      403,
+      ApiErrorCode.TENANT_SUSPENDED,
+    );
   }
   if (Number(tenant.usdt_balance) <= 0 && Number(tenant.coin_to_usdt_rate) > 0) {
-    throw Object.assign(new Error('Tenant prepaid USDT exhausted'), {
-      status: 402,
-    });
+    throw apiError(
+      'Tenant prepaid USDT exhausted',
+      402,
+      ApiErrorCode.TENANT_USDT_EXHAUSTED,
+    );
   }
 
   const merchantMode = tenant.wallet_mode === 'merchant_callback';
   const externalId = input.auth.player.external_id?.trim();
   if (merchantMode && !externalId) {
-    throw Object.assign(
-      new Error('Player external_id required for merchant wallet'),
-      { status: 400 },
+    throw apiError(
+      'Player external_id required for merchant wallet',
+      400,
+      ApiErrorCode.EXTERNAL_ID_REQUIRED,
     );
   }
 
@@ -59,9 +67,11 @@ export async function placeBet(input: PlaceBetInput) {
       sstoken: sstokenRes.rows[0]?.sstoken,
     });
     if (!debit.ok) {
-      throw Object.assign(new Error(debit.error || 'Merchant debit failed'), {
-        status: 402,
-      });
+      throw apiError(
+        debit.error || 'Merchant debit failed',
+        402,
+        ApiErrorCode.MERCHANT_DEBIT_FAILED,
+      );
     }
     merchantCoins = debit.coins;
   }
@@ -79,7 +89,7 @@ export async function placeBet(input: PlaceBetInput) {
     );
     const gameId = configRes.rows[0]?.id;
     if (!gameId) {
-      throw Object.assign(new Error('Game not found'), { status: 404 });
+      throw apiError('Game not found', 404, ApiErrorCode.GAME_NOT_FOUND);
     }
 
     let roundId = input.roundId?.trim() || null;
@@ -90,10 +100,10 @@ export async function placeBet(input: PlaceBetInput) {
       );
       const round = roundCheck.rows[0];
       if (!round) {
-        throw Object.assign(new Error('Round not found'), { status: 404 });
+        throw apiError('Round not found', 404, ApiErrorCode.ROUND_NOT_FOUND);
       }
       if (round.status !== 'betting') {
-        throw Object.assign(new Error('Betting closed'), { status: 409 });
+        throw apiError('Betting closed', 409, ApiErrorCode.BETTING_CLOSED);
       }
     } else {
       const active = await client.query<{ id: string }>(
@@ -127,7 +137,11 @@ export async function placeBet(input: PlaceBetInput) {
           ? merchantCoins
           : Number(playerRes.rows[0]?.coins ?? 0) - amount;
       if (mirrored < 0) {
-        throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+        throw apiError(
+          'Insufficient balance',
+          402,
+          ApiErrorCode.INSUFFICIENT_BALANCE,
+        );
       }
       await client.query(`UPDATE players SET coins = $1 WHERE id = $2`, [
         Math.max(0, mirrored),
@@ -136,7 +150,11 @@ export async function placeBet(input: PlaceBetInput) {
     } else {
       const coins = Number(playerRes.rows[0]?.coins ?? 0);
       if (coins < amount) {
-        throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+        throw apiError(
+          'Insufficient balance',
+          402,
+          ApiErrorCode.INSUFFICIENT_BALANCE,
+        );
       }
       await client.query(`UPDATE players SET coins = coins - $1 WHERE id = $2`, [
         amount,
@@ -206,7 +224,7 @@ export async function adjustBalance(
 ): Promise<number> {
   const amount = Math.floor(Number(delta));
   if (!Number.isFinite(amount) || amount === 0) {
-    throw Object.assign(new Error('Invalid amount'), { status: 400 });
+    throw apiError('Invalid amount', 400, ApiErrorCode.INVALID_AMOUNT);
   }
 
   if (amount < 0) {
@@ -218,7 +236,11 @@ export async function adjustBalance(
       [amount, playerId, Math.abs(amount)],
     );
     if (!rows[0]) {
-      throw Object.assign(new Error('Insufficient balance'), { status: 402 });
+      throw apiError(
+        'Insufficient balance',
+        402,
+        ApiErrorCode.INSUFFICIENT_BALANCE,
+      );
     }
     return Number(rows[0].coins);
   }
@@ -228,7 +250,7 @@ export async function adjustBalance(
     [amount, playerId],
   );
   if (!rows[0]) {
-    throw Object.assign(new Error('Player not found'), { status: 404 });
+    throw apiError('Player not found', 404, ApiErrorCode.PLAYER_NOT_FOUND);
   }
   return Number(rows[0].coins);
 }

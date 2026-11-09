@@ -1,5 +1,6 @@
 import { generateApiKey } from '@/lib/server/api-keys';
 import { query } from '@/lib/server/db';
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { jsonError, jsonOk, requireAdmin } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -37,7 +38,11 @@ export async function POST(req: Request) {
       [tenantSlug],
     );
     const tenant = tenantRes.rows[0];
-    if (!tenant) return jsonError('Tenant not found', 404);
+    if (!tenant) {
+      return jsonError('Tenant not found', 404, {
+        code: ApiErrorCode.TENANT_NOT_FOUND,
+      });
+    }
 
     const playerRes = await query<{ id: string }>(
       `INSERT INTO players (tenant_id, external_id, username, avatar_url, coins)
@@ -81,6 +86,8 @@ export async function POST(req: Request) {
     );
   } catch (e) {
     console.error('[api/v1/keys]', e);
-    return jsonError('Internal error', 500);
+    return jsonError('Internal error', 500, {
+      code: ApiErrorCode.INTERNAL_ERROR,
+    });
   }
 }

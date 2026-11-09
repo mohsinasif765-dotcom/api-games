@@ -45,7 +45,7 @@ try {
        cb_user_info_url, cb_change_balance_url, cb_get_sstoken_url, cb_update_sstoken_url,
        cb_app_id, cb_app_key, cb_timeout_ms
      ) VALUES (
-       'rave-star', 'Rave Star', 'active', 1000, 0.0001, 'local',
+       'rave-star', 'Rave Star', 'active', 1000, 0.0001, 'merchant_callback',
        'https://gateway.rave-star.com/v1/api/get_user_info',
        'https://gateway.rave-star.com/v1/api/change_balance',
        'https://gateway.rave-star.com/v1/api/get_sstoken',
@@ -57,6 +57,7 @@ try {
        status = 'active',
        usdt_balance = GREATEST(tenants.usdt_balance, EXCLUDED.usdt_balance),
        coin_to_usdt_rate = EXCLUDED.coin_to_usdt_rate,
+       wallet_mode = 'merchant_callback',
        cb_user_info_url = EXCLUDED.cb_user_info_url,
        cb_change_balance_url = EXCLUDED.cb_change_balance_url,
        cb_get_sstoken_url = EXCLUDED.cb_get_sstoken_url,

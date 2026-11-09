@@ -1,4 +1,5 @@
 import { placeBet } from '@/lib/server/bets';
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { jsonError, jsonOk, requirePlayerAuth } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -31,8 +32,10 @@ export async function POST(
 
     return jsonOk(result, { status: 201 });
   } catch (e) {
-    const err = e as Error & { status?: number };
+    const err = e as Error & { status?: number; code?: string };
     console.error('[api/v1/games/bets]', err);
-    return jsonError(err.message || 'Bet failed', err.status || 500);
+    return jsonError(err.message || 'Bet failed', err.status || 500, {
+      code: err.code || ApiErrorCode.BET_FAILED,
+    });
   }
 }

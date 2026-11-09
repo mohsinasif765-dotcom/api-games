@@ -30,7 +30,7 @@ Mint session with admin `POST /api/v1/session` (`x-admin-secret`).
 
 4. On `openWallet`, show your recharge sheet; when user returns, H5 will refresh via `/me`.
 5. On `notifyReady`, hide native splash/loader.
-6. On HTTP 402 from bets, H5 already calls `openWallet()`.
+6. On HTTP 402 from bets (`INSUFFICIENT_BALANCE`, `MERCHANT_DEBIT_FAILED`, `TENANT_USDT_EXHAUSTED`), H5 already calls `openWallet()`. Full code list: `docs/merchant-callbacks.md` → **API error shape**.
 
 ## Android WebView setup (Kotlin)
 

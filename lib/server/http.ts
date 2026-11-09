@@ -5,12 +5,17 @@ import {
   resolveApiKey,
   type AuthContext,
 } from './api-keys';
+import { ApiErrorCode } from './error-codes';
 
 export function jsonOk<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ ok: true, data }, init);
 }
 
-export function jsonError(message: string, status = 400, extra?: Record<string, unknown>) {
+export function jsonError(
+  message: string,
+  status = 400,
+  extra?: Record<string, unknown>,
+) {
   return NextResponse.json({ ok: false, error: message, ...extra }, { status });
 }
 
@@ -22,7 +27,12 @@ export async function requirePlayerAuth(req: Request): Promise<
   const tenantSlug = extractTenantSlug(req);
   const auth = await resolveApiKey(rawKey, tenantSlug);
   if (!auth) {
-    return { ok: false, response: jsonError('Invalid or missing API key', 401) };
+    return {
+      ok: false,
+      response: jsonError('Invalid or missing API key', 401, {
+        code: ApiErrorCode.INVALID_API_KEY,
+      }),
+    };
   }
   return { ok: true, auth };
 }
@@ -30,7 +40,9 @@ export async function requirePlayerAuth(req: Request): Promise<
 export function requireAdmin(req: Request): NextResponse | null {
   const secret = process.env.GATEWAY_ADMIN_SECRET?.trim();
   if (!secret) {
-    return jsonError('GATEWAY_ADMIN_SECRET is not configured', 500);
+    return jsonError('GATEWAY_ADMIN_SECRET is not configured', 500, {
+      code: ApiErrorCode.ADMIN_SECRET_MISSING,
+    });
   }
   const provided =
     req.headers.get('x-admin-secret')?.trim() ||
@@ -38,7 +50,9 @@ export function requireAdmin(req: Request): NextResponse | null {
       ? req.headers.get('authorization')!.slice(7).trim()
       : null);
   if (provided !== secret) {
-    return jsonError('Unauthorized admin', 401);
+    return jsonError('Unauthorized admin', 401, {
+      code: ApiErrorCode.UNAUTHORIZED_ADMIN,
+    });
   }
   return null;
 }

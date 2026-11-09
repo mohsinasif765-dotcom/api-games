@@ -1,4 +1,5 @@
 import { settlePendingMerchantCredits } from '@/lib/server/bets';
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { jsonError, jsonOk, requireAdmin } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -19,7 +20,9 @@ export async function POST(req: Request) {
     return jsonOk(result);
   } catch (e) {
     console.error('[api/v1/internal/settle-merchant]', e);
-    return jsonError('Settle failed', 500);
+    return jsonError('Settle failed', 500, {
+      code: ApiErrorCode.SETTLE_FAILED,
+    });
   }
 }
 

@@ -517,9 +517,28 @@ export class GreedyKingController {
   }
 
   private seedClockFromRound(round: GameRound | null) {
-    if (!round || round.status !== 'betting') return;
-    const ends = round.betting_ends_at || round.round_ends_at;
-    if (!ends) return;
+    if (!round) return;
+    let ends: string | null =
+      round.status === 'betting'
+        ? round.betting_ends_at || round.round_ends_at || null
+        : round.status === 'spinning'
+          ? round.spinning_ends_at || round.round_ends_at || null
+          : null;
+    // Cron sometimes leaves spinning_ends_at null — keep hub ticking.
+    if (!ends && round.status === 'spinning') {
+      const betEnd = round.betting_ends_at
+        ? new Date(round.betting_ends_at).getTime()
+        : NaN;
+      const fallbackMs = Number.isFinite(betEnd)
+        ? betEnd + 12_000
+        : Date.now() - this.skewMs + 12_000;
+      this.endsAtMs = fallbackMs;
+      return;
+    }
+    if (!ends) {
+      this.endsAtMs = null;
+      return;
+    }
     this.endsAtMs = new Date(ends).getTime();
   }
 
@@ -717,12 +736,8 @@ export class GreedyKingController {
     }
     this.lastPhaseKey = key;
 
-    const ends =
-      round.status === 'betting'
-        ? round.betting_ends_at || round.round_ends_at
-        : null;
-    this.endsAtMs = ends ? new Date(ends).getTime() : null;
-    if (round.status !== 'betting') {
+    this.seedClockFromRound(round);
+    if (this.endsAtMs == null) {
       this.emit('countdown', 0);
     }
 

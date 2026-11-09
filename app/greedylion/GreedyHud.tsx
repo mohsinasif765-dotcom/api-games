@@ -179,13 +179,17 @@ export function GreedyHud({
   }, [result]);
 
   const betting = !!controller && round?.status === 'betting' && !spinning;
+  // Always prefer live countdown (betting or spinning); avoid empty "--" on the hub face
   const hubSeconds =
-    betting && countdown > 0
+    countdown > 0
       ? String(countdown).padStart(2, '0')
-      : spinning
-        ? '…'
-        : '--';
+      : spinning || round?.status === 'spinning'
+        ? '00'
+        : betting
+          ? '00'
+          : '--';
   const winnerFood = result ? foodById(result.winnerId) : undefined;
+  const resultIsWin = !!result && result.winCoins > 0;
   const displayProfit = Math.max(0, profit);
 
   const closeResult = () => {
@@ -433,17 +437,8 @@ export function GreedyHud({
                   <span className={styles.multBadge}>x{item.multiplier}</span>
                 </span>
                 {betAmount > 0 && (
-                  <span className={styles.betAmount}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/greedy-lion/botom.webp"
-                      alt=""
-                      className={styles.betAmountPlate}
-                      draggable={false}
-                    />
-                    <span className={styles.betAmountText}>
-                      {formatChip(betAmount)}
-                    </span>
+                  <span className={styles.betAmountText}>
+                    {formatChip(betAmount)}
                   </span>
                 )}
               </button>
@@ -587,12 +582,19 @@ export function GreedyHud({
               ({Math.max(0, resultCloseIn)}s)
             </button>
 
-            {/* Pin to sheet so feet sit on painted checkered table */}
+            {/* Win: lain · Loss: crying lion (static, no bounce) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/greedy-lion/lain.webp"
+              key={resultIsWin ? 'result-lion-win' : 'result-lion-loss'}
+              src={
+                resultIsWin
+                  ? '/greedy-lion/lain.webp?v=3'
+                  : '/greedy-lion/win-popup-loss.png?v=3'
+              }
               alt=""
-              className={styles.resultLion}
+              className={`${styles.resultLion} ${
+                resultIsWin ? '' : styles.resultLionLoss
+              }`}
               draggable={false}
             />
 
@@ -614,7 +616,9 @@ export function GreedyHud({
                 {result.roundNumber ??
                   round?.round_number ??
                   controller?.currentRound?.round_number ??
-                  '—'}
+                  (result.roundId
+                    ? String(result.roundId).replace(/\D/g, '').slice(-4) || '—'
+                    : '—')}
                 &apos;s Result:
               </div>
               <div className={styles.resultStatLine}>

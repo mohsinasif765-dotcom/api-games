@@ -1,5 +1,6 @@
 import { generateApiKey } from '@/lib/server/api-keys';
 import { query } from '@/lib/server/db';
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { jsonError, jsonOk, requireAdmin } from '@/lib/server/http';
 import {
   loadTenantBilling,
@@ -43,11 +44,17 @@ export async function POST(req: Request) {
       [tenantSlug],
     );
     const tenantId = tenantRes.rows[0]?.id;
-    if (!tenantId) return jsonError('Tenant not found', 404);
+    if (!tenantId) {
+      return jsonError('Tenant not found', 404, {
+        code: ApiErrorCode.TENANT_NOT_FOUND,
+      });
+    }
 
     const tenant = await loadTenantBilling(tenantId);
     if (!tenant || tenant.status !== 'active') {
-      return jsonError('Tenant suspended or missing', 403);
+      return jsonError('Tenant suspended or missing', 403, {
+        code: ApiErrorCode.TENANT_SUSPENDED,
+      });
     }
 
     let username = body.username?.trim() || externalId;
@@ -140,6 +147,8 @@ export async function POST(req: Request) {
     );
   } catch (e) {
     console.error('[api/v1/session]', e);
-    return jsonError('Session failed', 500);
+    return jsonError('Session failed', 500, {
+      code: ApiErrorCode.SESSION_FAILED,
+    });
   }
 }

@@ -1,4 +1,5 @@
 import { adjustBalance } from '@/lib/server/bets';
+import { ApiErrorCode } from '@/lib/server/error-codes';
 import { jsonError, jsonOk, requirePlayerAuth } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -10,12 +11,16 @@ export async function POST(req: Request) {
     const body = (await req.json()) as { amount?: number };
     const amount = Math.floor(Number(body.amount ?? 0));
     if (!Number.isFinite(amount) || amount <= 0) {
-      return jsonError('amount must be a positive integer', 400);
+      return jsonError('amount must be a positive integer', 400, {
+        code: ApiErrorCode.INVALID_AMOUNT,
+      });
     }
     const balance = await adjustBalance(authResult.auth.player.id, amount);
     return jsonOk({ balance, credited: amount });
   } catch (e) {
-    const err = e as Error & { status?: number };
-    return jsonError(err.message || 'Credit failed', err.status || 500);
+    const err = e as Error & { status?: number; code?: string };
+    return jsonError(err.message || 'Credit failed', err.status || 500, {
+      code: err.code || ApiErrorCode.INTERNAL_ERROR,
+    });
   }
 }

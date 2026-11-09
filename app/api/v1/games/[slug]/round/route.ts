@@ -37,14 +37,25 @@ export async function GET(
     const gameId = configRes.rows[0]?.id;
     if (!gameId) return jsonError('Game not found', 404);
 
-    let roundRes = await query(
-      `SELECT *
-       FROM game_rounds
-       WHERE game_id = $1 AND status <> 'finished'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [gameId],
-    );
+    // Prefer this tenant's live round so clocks/bets stay scoped.
+    let roundRes = tenantId
+      ? await query(
+          `SELECT *
+           FROM game_rounds
+           WHERE game_id = $1 AND status <> 'finished'
+             AND (tenant_id = $2 OR tenant_id IS NULL)
+           ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END, created_at DESC
+           LIMIT 1`,
+          [gameId, tenantId],
+        )
+      : await query(
+          `SELECT *
+           FROM game_rounds
+           WHERE game_id = $1 AND status <> 'finished'
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [gameId],
+        );
 
     if (!roundRes.rows[0] && tenantId) {
       roundRes = await query(
