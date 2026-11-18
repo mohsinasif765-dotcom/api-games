@@ -411,9 +411,6 @@ export default function PizzaGamePage() {
       return;
     }
 
-    const prevBalance = balance;
-    const prevBets = { ...currentBetsRef.current };
-
     setBalance(prev => prev - selectedChip);
     setCurrentBets(prev => {
       const newVal = {
@@ -449,9 +446,14 @@ export default function PizzaGamePage() {
     });
 
     if (error) {
-      setBalance(prevBalance);
-      setCurrentBets(prevBets);
-      currentBetsRef.current = prevBets;
+      // Undo only this bet; the snapshots would also wipe concurrent bets.
+      setBalance(prev => prev + selectedChip);
+      const undone = {
+        ...currentBetsRef.current,
+        [optionId]: Math.max(0, (currentBetsRef.current[optionId] || 0) - selectedChip),
+      };
+      setCurrentBets(undone);
+      currentBetsRef.current = undone;
       showToast(parseBetRpcError(error));
     } else if (nextBalance != null) {
       setBalance(nextBalance);

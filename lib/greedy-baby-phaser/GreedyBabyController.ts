@@ -423,8 +423,6 @@ export class GreedyBabyController {
       return false;
     }
 
-    const prevBalance = this.balance;
-    const prevBets = { ...this.currentBets };
 
     this.balance -= amount;
     this.currentBets = {
@@ -447,8 +445,12 @@ export class GreedyBabyController {
     }
     if (error) {
       console.error('[GreedyBaby] place_game_bet', error);
-      this.balance = prevBalance;
-      this.currentBets = prevBets;
+      // Undo only this bet; the snapshot would also wipe concurrent bets.
+      this.balance += amount;
+      this.currentBets = {
+        ...this.currentBets,
+        [optionId]: Math.max(0, (this.currentBets[optionId] || 0) - amount),
+      };
       this.emit('balance', this.balance);
       this.emit('bets', { ...this.currentBets });
       this.toast(parseBetRpcError(error));

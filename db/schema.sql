@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS tenants (
   cb_app_id text,
   cb_app_key text,
   cb_timeout_ms int NOT NULL DEFAULT 8000,
+  rtp_target numeric(5, 2) NOT NULL DEFAULT 96
+    CHECK (rtp_target > 0 AND rtp_target <= 100),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

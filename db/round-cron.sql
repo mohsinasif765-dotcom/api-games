@@ -1,5 +1,6 @@
 -- Round engine: advance betting → spinning → finished (+ payouts) every second.
--- Applied via: node scripts/setup-round-cron.mjs
+-- Applied via: node scripts/apply-round-cron.mjs  (or setup-round-cron.mjs for seed+cron)
+-- Includes per-tenant / per-game RTP bias via pick_weighted_option(..., rtp).
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -13,7 +14,14 @@ ALTER TABLE game_bets
 ALTER TABLE game_rounds
   ADD COLUMN IF NOT EXISTS round_number bigint;
 
-CREATE OR REPLACE FUNCTION public.pick_weighted_option(p_options jsonb)
+-- Replace prior signatures so RTP arg is available.
+DROP FUNCTION IF EXISTS public.pick_weighted_option(jsonb);
+DROP FUNCTION IF EXISTS public.pick_weighted_option(jsonb, numeric);
+
+CREATE OR REPLACE FUNCTION public.pick_weighted_option(
+  p_options jsonb,
+  p_target_rtp numeric DEFAULT NULL
+)
 RETURNS text
 LANGUAGE plpgsql
 AS $$
@@ -24,6 +32,19 @@ DECLARE
   acc numeric := 0;
   mult numeric;
   weight numeric;
+  w_fair numeric;
+  w_bias numeric;
+  sum_inv numeric := 0;
+  sum_fair numeric := 0;
+  sum_bias numeric := 0;
+  e_fair numeric := 0;
+  e_bias numeric := 0;
+  m_max numeric := 0;
+  n_opts int := 0;
+  r0 numeric;
+  t_frac numeric;
+  p_fair numeric;
+  use_fair boolean := true;
 BEGIN
   IF p_options IS NULL OR jsonb_typeof(p_options) <> 'array' OR jsonb_array_length(p_options) = 0 THEN
     RETURN NULL;
@@ -32,16 +53,82 @@ BEGIN
   FOR opt IN SELECT * FROM jsonb_array_elements(p_options)
   LOOP
     mult := GREATEST(COALESCE((opt->>'multiplier')::numeric, 1), 0.01);
-    weight := 1000.0 / mult;
+    n_opts := n_opts + 1;
+    sum_inv := sum_inv + (1.0 / mult);
+    IF mult > m_max THEN
+      m_max := mult;
+    END IF;
+  END LOOP;
+
+  IF sum_inv <= 0 OR n_opts = 0 THEN
+    RETURN p_options->-1->>'id';
+  END IF;
+
+  -- Fair even-bet / single-option RTP proxy (fraction 0..1)
+  r0 := 1.0 / sum_inv;
+
+  FOR opt IN SELECT * FROM jsonb_array_elements(p_options)
+  LOOP
+    mult := GREATEST(COALESCE((opt->>'multiplier')::numeric, 1), 0.01);
+    w_fair := 1000.0 / mult;
+    w_bias := w_fair * (m_max / mult);
+    sum_fair := sum_fair + w_fair;
+    sum_bias := sum_bias + w_bias;
+  END LOOP;
+
+  FOR opt IN SELECT * FROM jsonb_array_elements(p_options)
+  LOOP
+    mult := GREATEST(COALESCE((opt->>'multiplier')::numeric, 1), 0.01);
+    w_fair := 1000.0 / mult;
+    w_bias := w_fair * (m_max / mult);
+    e_fair := e_fair + (w_fair / sum_fair) * mult;
+    e_bias := e_bias + (w_bias / sum_bias) * mult;
+  END LOOP;
+
+  IF p_target_rtp IS NOT NULL AND p_target_rtp > 0 THEN
+    -- Stored as percent 1..100; clamp to achievable band [bias RTP, fair RTP]
+    t_frac := LEAST(
+      GREATEST(p_target_rtp / 100.0, e_bias / n_opts),
+      r0
+    );
+    -- Mix fair vs bias so even-bet RTP ≈ t_frac
+    -- E[m] = p*E_fair + (1-p)*E_bias = t_frac * n_opts
+    IF e_fair > e_bias THEN
+      p_fair := ((t_frac * n_opts) - e_bias) / (e_fair - e_bias);
+      p_fair := LEAST(GREATEST(p_fair, 0), 1);
+      use_fair := random() < p_fair;
+    ELSE
+      use_fair := true;
+    END IF;
+  END IF;
+
+  FOR opt IN SELECT * FROM jsonb_array_elements(p_options)
+  LOOP
+    mult := GREATEST(COALESCE((opt->>'multiplier')::numeric, 1), 0.01);
+    w_fair := 1000.0 / mult;
+    IF use_fair THEN
+      weight := w_fair;
+    ELSE
+      weight := w_fair * (m_max / mult);
+    END IF;
     total := total + weight;
   END LOOP;
+
+  IF total <= 0 THEN
+    RETURN p_options->-1->>'id';
+  END IF;
 
   r := random() * total;
   acc := 0;
   FOR opt IN SELECT * FROM jsonb_array_elements(p_options)
   LOOP
     mult := GREATEST(COALESCE((opt->>'multiplier')::numeric, 1), 0.01);
-    weight := 1000.0 / mult;
+    w_fair := 1000.0 / mult;
+    IF use_fair THEN
+      weight := w_fair;
+    ELSE
+      weight := w_fair * (m_max / mult);
+    END IF;
     acc := acc + weight;
     IF r <= acc THEN
       RETURN opt->>'id';
@@ -72,6 +159,7 @@ DECLARE
   v_fee numeric(24, 8);
   v_charge numeric(24, 8);
   v_new_bal numeric(24, 8);
+  v_rtp numeric;
 BEGIN
   FOR cfg IN
     SELECT gc.id AS game_id, gc.tenant_id, gc.meta
@@ -90,15 +178,28 @@ BEGIN
   END LOOP;
 
   FOR rnd IN
-    SELECT gr.*, gc.meta
+    SELECT
+      gr.*,
+      gc.meta,
+      gc.tenant_id AS cfg_tenant,
+      CASE
+        WHEN gc.tenant_id IS NULL THEN NULL
+        ELSE COALESCE(
+          NULLIF((gc.meta->>'rtp')::numeric, 0),
+          t.rtp_target,
+          96::numeric
+        )
+      END AS effective_rtp
     FROM game_rounds gr
     JOIN game_configs gc ON gc.id = gr.game_id
+    LEFT JOIN tenants t ON t.id = gc.tenant_id
     WHERE gr.status = 'betting'
       AND gr.betting_ends_at IS NOT NULL
       AND gr.betting_ends_at <= now()
     FOR UPDATE OF gr SKIP LOCKED
   LOOP
-    winner := public.pick_weighted_option(rnd.meta->'options');
+    v_rtp := rnd.effective_rtp;
+    winner := public.pick_weighted_option(rnd.meta->'options', v_rtp);
     IF winner IS NULL THEN
       winner := 'bmw';
     END IF;

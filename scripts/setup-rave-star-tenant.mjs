@@ -46,10 +46,10 @@ try {
        cb_app_id, cb_app_key, cb_timeout_ms
      ) VALUES (
        'rave-star', 'Rave Star', 'active', 1000, 0.0001, 'merchant_callback',
-       'https://gateway.rave-star.com/v1/api/get_user_info',
-       'https://gateway.rave-star.com/v1/api/change_balance',
-       'https://gateway.rave-star.com/v1/api/get_sstoken',
-       'https://gateway.rave-star.com/v1/api/update_sstoken',
+       'https://gateway.rave-star.com/v1/api/apigames/get_user_info',
+       'https://gateway.rave-star.com/v1/api/apigames/change_balance',
+       'https://gateway.rave-star.com/v1/api/apigames/get_sstoken',
+       'https://gateway.rave-star.com/v1/api/apigames/update_sstoken',
        $1, $2, 8000
      )
      ON CONFLICT (slug) DO UPDATE SET

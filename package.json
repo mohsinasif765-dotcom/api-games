@@ -8,6 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "db:schema": "node scripts/apply-schema.mjs",
+    "db:rtp": "node scripts/apply-tenant-rtp.mjs",
+    "db:round-cron": "node scripts/apply-round-cron.mjs",
+    "tenant:assign-games": "node scripts/assign-tenant-games.mjs",
+    "tenant:set-rtp": "node scripts/set-tenant-rtp.mjs",
+    "rtp:simulate": "node scripts/simulate-rtp-local.mjs",
     "keys:issue": "node scripts/issue-key.mjs"
   },
   "dependencies": {

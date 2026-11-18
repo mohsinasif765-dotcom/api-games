@@ -542,8 +542,6 @@ export class FootballController {
       return false;
     }
 
-    const prevBalance = this.balance;
-    const prevBets = { ...this.currentBets };
     const prevAll = { ...this.allBets };
 
     this.balance -= amount;
@@ -572,8 +570,12 @@ export class FootballController {
     }
     if (error) {
       console.error('[Football] place_game_bet', error);
-      this.balance = prevBalance;
-      this.currentBets = prevBets;
+      // Undo only this bet; the snapshot would also wipe concurrent bets.
+      this.balance += amount;
+      this.currentBets = {
+        ...this.currentBets,
+        [optionId]: Math.max(0, (this.currentBets[optionId] || 0) - amount),
+      };
       this.allBets = prevAll;
       this.emit('balance', this.balance);
       this.emitBets();

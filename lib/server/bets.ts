@@ -82,8 +82,10 @@ export async function placeBet(input: PlaceBetInput) {
 
     const configRes = await client.query<{ id: string }>(
       `SELECT id FROM game_configs
-       WHERE slug = $1 AND (tenant_id = $2 OR tenant_id IS NULL) AND status = 'active'
-       ORDER BY tenant_id NULLS LAST
+       WHERE slug = $1
+         AND status = 'active'
+         AND (tenant_id = $2 OR tenant_id IS NULL)
+       ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END
        LIMIT 1`,
       [input.slug, input.auth.tenant.id],
     );
@@ -95,11 +97,20 @@ export async function placeBet(input: PlaceBetInput) {
     let roundId = input.roundId?.trim() || null;
     if (roundId) {
       const roundCheck = await client.query(
-        `SELECT id, status FROM game_rounds WHERE id = $1 AND game_id = $2 FOR UPDATE`,
+        `SELECT id, status, tenant_id
+         FROM game_rounds
+         WHERE id = $1 AND game_id = $2
+         FOR UPDATE`,
         [roundId, gameId],
       );
       const round = roundCheck.rows[0];
       if (!round) {
+        throw apiError('Round not found', 404, ApiErrorCode.ROUND_NOT_FOUND);
+      }
+      if (
+        round.tenant_id &&
+        round.tenant_id !== input.auth.tenant.id
+      ) {
         throw apiError('Round not found', 404, ApiErrorCode.ROUND_NOT_FOUND);
       }
       if (round.status !== 'betting') {
@@ -108,11 +119,13 @@ export async function placeBet(input: PlaceBetInput) {
     } else {
       const active = await client.query<{ id: string }>(
         `SELECT id FROM game_rounds
-         WHERE game_id = $1 AND status = 'betting'
-         ORDER BY created_at DESC
+         WHERE game_id = $1
+           AND status = 'betting'
+           AND (tenant_id = $2 OR tenant_id IS NULL)
+         ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END, created_at DESC
          LIMIT 1
          FOR UPDATE`,
-        [gameId],
+        [gameId, input.auth.tenant.id],
       );
       roundId = active.rows[0]?.id ?? null;
       if (!roundId) {

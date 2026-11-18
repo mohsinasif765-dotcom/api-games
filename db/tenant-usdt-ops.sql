@@ -24,10 +24,10 @@ FROM t;
 UPDATE tenants
 SET
   wallet_mode = 'merchant_callback',
-  cb_user_info_url = 'https://gateway.rave-star.com/v1/api/get_user_info',
-  cb_change_balance_url = 'https://gateway.rave-star.com/v1/api/change_balance',
-  cb_get_sstoken_url = 'https://gateway.rave-star.com/v1/api/get_sstoken',
-  cb_update_sstoken_url = 'https://gateway.rave-star.com/v1/api/update_sstoken',
+  cb_user_info_url = 'https://gateway.rave-star.com/v1/api/apigames/get_user_info',
+  cb_change_balance_url = 'https://gateway.rave-star.com/v1/api/apigames/change_balance',
+  cb_get_sstoken_url = 'https://gateway.rave-star.com/v1/api/apigames/get_sstoken',
+  cb_update_sstoken_url = 'https://gateway.rave-star.com/v1/api/apigames/update_sstoken',
   cb_app_id = 'YOUR_APP_ID',
   cb_app_key = 'YOUR_APP_KEY',
   cb_timeout_ms = 8000

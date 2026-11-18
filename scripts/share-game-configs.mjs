@@ -1,3 +1,14 @@
+/**
+ * DEPRECATED for RTP tenants.
+ *
+ * Nulling tenant_id makes one shared round stream for all tenants, so
+ * per-tenant / per-game RTP cannot work. Prefer:
+ *   node scripts/assign-tenant-games.mjs <tenant> <slugs>
+ *   node scripts/set-tenant-rtp.mjs <tenant> <rtp> [--game=slug]
+ *
+ * This script is kept only to inspect / temporarily flatten catalog templates.
+ * Pass --force to actually null tenant_id on active configs.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,13 +30,32 @@ for (const line of fs.readFileSync(path.join(root, '.env.local'), 'utf8').split(
   if (!process.env[k]) process.env[k] = v;
 }
 
+const force = process.argv.includes('--force');
+
 const c = new pg.Client({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 await c.connect();
 try {
-  // Make catalog shared across tenants (tenant_id NULL = global)
+  if (!force) {
+    console.log(
+      JSON.stringify(
+        {
+          warning:
+            'share-game-configs breaks per-tenant RTP. Use assign-tenant-games.mjs instead. Re-run with --force only if you intentionally want shared global configs.',
+        },
+        null,
+        2,
+      ),
+    );
+    const catalog = await c.query(
+      `SELECT slug, tenant_id, status FROM game_configs WHERE status = 'active' ORDER BY slug, tenant_id NULLS FIRST`,
+    );
+    console.log('active configs:', catalog.rows);
+    process.exit(0);
+  }
+
   const updated = await c.query(
     `UPDATE game_configs
      SET tenant_id = NULL
@@ -38,7 +68,6 @@ try {
     updated.rows.map((r) => r.slug),
   );
 
-  // Smoke: greedy_baby visible for rave-star style lookup
   const rave = await c.query(`SELECT id FROM tenants WHERE slug = 'rave-star'`);
   const tenantId = rave.rows[0]?.id;
   const found = await c.query(
