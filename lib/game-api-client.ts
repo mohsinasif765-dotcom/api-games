@@ -23,7 +23,11 @@ export type MeResponse = {
 };
 
 function apiBase() {
-  return (process.env.NEXT_PUBLIC_GAME_API_BASE || '/api/v1').replace(/\/$/, '');
+  // Production default = Zuvo Express gateway. Override locally with NEXT_PUBLIC_GAME_API_BASE=/api/v1
+  return (
+    process.env.NEXT_PUBLIC_GAME_API_BASE ||
+    'https://games.app.zuvodev.com/api/v1'
+  ).replace(/\/$/, '');
 }
 
 export function getApiKeyFromUrl(): string | null {
