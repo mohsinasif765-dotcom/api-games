@@ -1,5 +1,12 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { query } from './db';
+import {
+  CacheTTL,
+  cacheGetJson,
+  cacheSetJson,
+  tenantIdCacheKey,
+  tenantSlugCacheKey,
+} from './cache';
 
 export type TenantCallbackConfig = {
   id: string;
@@ -33,6 +40,20 @@ export type ChangeBalanceResult = {
 export async function loadTenantBilling(
   tenantId: string,
 ): Promise<TenantCallbackConfig | null> {
+  const cacheKey = tenantIdCacheKey(tenantId);
+  const hit = await cacheGetJson<TenantCallbackConfig>(cacheKey);
+  if (hit?.id) {
+    // Refresh live prepaid balance for gate checks (cheap single column).
+    const bal = await query<{ usdt_balance: string | number }>(
+      `SELECT usdt_balance FROM tenants WHERE id = $1 LIMIT 1`,
+      [tenantId],
+    );
+    if (bal.rows[0]) {
+      return { ...hit, usdt_balance: bal.rows[0].usdt_balance };
+    }
+    return hit;
+  }
+
   const { rows } = await query<TenantCallbackConfig>(
     `SELECT
        id, slug, status, usdt_balance, coin_to_usdt_rate, wallet_mode,
@@ -41,7 +62,12 @@ export async function loadTenantBilling(
      FROM tenants WHERE id = $1 LIMIT 1`,
     [tenantId],
   );
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row) {
+    await cacheSetJson(cacheKey, row, CacheTTL.TENANT);
+    await cacheSetJson(tenantSlugCacheKey(row.slug), row, CacheTTL.TENANT);
+  }
+  return row;
 }
 
 /** Canonical FunPlay-style sign: HMAC-SHA256(app_key, app_id + timestamp + bodyJson) */

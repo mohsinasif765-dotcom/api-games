@@ -122,6 +122,27 @@ export async function fetchMe(apiKey?: string | null) {
   return gameApiFetch<MeResponse>('/me', { apiKey });
 }
 
+export type BootResponse = MeResponse & {
+  game: {
+    id: string;
+    slug: string;
+    name: string | null;
+    status: string;
+    meta: unknown;
+  };
+  game_id: string;
+  round: Record<string, unknown> | null;
+  server_now: string;
+};
+
+/** Single splash bootstrap (auth + me + config + round). */
+export async function fetchBoot(slug: string, apiKey?: string | null) {
+  return gameApiFetch<BootResponse>(
+    `/boot?slug=${encodeURIComponent(slug)}`,
+    { apiKey },
+  );
+}
+
 export async function fetchGameConfig(slug: string) {
   return gameApiFetch<{
     id: string;

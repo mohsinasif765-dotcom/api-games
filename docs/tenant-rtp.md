@@ -34,3 +34,19 @@ npm run rtp:simulate -- 92
 SQL examples: `db/tenant-rtp-ops.sql`.
 
 Do **not** run `share-game-configs.mjs --force` for RTP tenants — shared configs collapse round streams.
+
+## Ludo Shudo balanced profile
+
+```bash
+node scripts/setup-ludo-shudo-tenant.mjs   # merchant callbacks + tenant
+npm run tenant:ludo-shudo-rtp              # assign games + per-game RTP
+```
+
+| Band | RTP | Why |
+| --- | --- | --- |
+| High-vol wheels (`greedy_king`, `greedy_baby`) | 93 | Big hits feel good; platform keeps more edge |
+| Mid social (`football`, `car`, `hero_chest`) | 94 | Steady hold |
+| Standard party (`fruit_party`, `pizza`, `euro`, lucky) | 95 | Default sweet spot (~5% hold) |
+| Frequent-hit (`teen_patti`) | 96 | Retention — small wins often |
+
+Portfolio average ~94–95. Avoid &lt;90 (players leave) and &gt;97 (platform bleed).

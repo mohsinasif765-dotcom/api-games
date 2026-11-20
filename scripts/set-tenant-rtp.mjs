@@ -5,12 +5,21 @@
  *   node scripts/set-tenant-rtp.mjs <tenant-slug> <rtp> [--propagate]
  *   node scripts/set-tenant-rtp.mjs <tenant-slug> <rtp> --game=<slug>
  */
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function invalidateRedis({ tenantSlug, tenantId, gameSlug }) {
+  const args = [path.join(root, 'scripts', 'redis-invalidate.mjs')];
+  if (tenantSlug) args.push(`--tenant=${tenantSlug}`);
+  if (tenantId) args.push(`--tenant-id=${tenantId}`);
+  if (gameSlug) args.push(`--game=${gameSlug}`);
+  spawnSync(process.execPath, args, { cwd: root, stdio: 'inherit' });
+}
 
 function loadEnvLocal() {
   const envPath = path.join(root, '.env.local');
@@ -150,6 +159,12 @@ try {
       2,
     ),
   );
+
+  invalidateRedis({
+    tenantSlug: tenant.slug,
+    tenantId: tenant.id,
+    gameSlug: gameSlug || null,
+  });
 } finally {
   await client.end();
 }

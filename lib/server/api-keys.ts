@@ -1,5 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { query } from './db';
+import {
+  CacheTTL,
+  apiKeyCacheKey,
+  cacheGetJson,
+  cacheSetJson,
+  cacheSetNx,
+  lastUsedDebounceKey,
+} from './cache';
 
 export type TenantRow = {
   id: string;
@@ -24,6 +32,13 @@ export type AuthContext = {
   scopes: string[];
 };
 
+type CachedAuth = {
+  apiKeyId: string;
+  scopes: string[];
+  tenant: TenantRow;
+  player: Omit<PlayerRow, 'coins'> & { coins?: string | number };
+};
+
 export function hashApiKey(rawKey: string): string {
   return createHash('sha256').update(rawKey).digest('hex');
 }
@@ -32,6 +47,17 @@ export function generateApiKey(): { raw: string; prefix: string; hash: string } 
   const raw = `pk_live_${randomBytes(24).toString('base64url')}`;
   const prefix = raw.slice(0, 16);
   return { raw, prefix, hash: hashApiKey(raw) };
+}
+
+async function touchLastUsed(apiKeyId: string) {
+  const shouldWrite = await cacheSetNx(
+    lastUsedDebounceKey(apiKeyId),
+    CacheTTL.LAST_USED_DEBOUNCE,
+  );
+  if (!shouldWrite) return;
+  void query(`UPDATE player_api_keys SET last_used_at = now() WHERE id = $1`, [
+    apiKeyId,
+  ]).catch((e) => console.error('[api-keys] last_used_at', e));
 }
 
 export async function resolveApiKey(
@@ -43,6 +69,28 @@ export async function resolveApiKey(
 
   const prefix = key.slice(0, 16);
   const keyHash = hashApiKey(key);
+  const cacheKey = apiKeyCacheKey(keyHash);
+
+  const cached = await cacheGetJson<CachedAuth>(cacheKey);
+  if (cached?.apiKeyId) {
+    if (cached.tenant.status !== 'active') return null;
+    if (tenantSlug && tenantSlug !== cached.tenant.slug) return null;
+    void touchLastUsed(cached.apiKeyId);
+    return {
+      apiKeyId: cached.apiKeyId,
+      scopes: cached.scopes ?? ['game:play'],
+      tenant: cached.tenant,
+      player: {
+        id: cached.player.id,
+        tenant_id: cached.player.tenant_id,
+        external_id: cached.player.external_id,
+        username: cached.player.username,
+        avatar_url: cached.player.avatar_url,
+        // Hint only — boot / bets must refresh coins from DB or merchant.
+        coins: cached.player.coins ?? 0,
+      },
+    };
+  }
 
   const { rows } = await query<{
     api_key_id: string;
@@ -84,11 +132,9 @@ export async function resolveApiKey(
   if (row.tenant_status !== 'active') return null;
   if (tenantSlug && tenantSlug !== row.tenant_slug) return null;
 
-  await query(`UPDATE player_api_keys SET last_used_at = now() WHERE id = $1`, [
-    row.api_key_id,
-  ]);
+  void touchLastUsed(row.api_key_id);
 
-  return {
+  const auth: AuthContext = {
     apiKeyId: row.api_key_id,
     scopes: row.scopes ?? ['game:play'],
     tenant: {
@@ -106,6 +152,25 @@ export async function resolveApiKey(
       coins: row.coins,
     },
   };
+
+  const toCache: CachedAuth = {
+    apiKeyId: auth.apiKeyId,
+    scopes: auth.scopes,
+    tenant: auth.tenant,
+    player: {
+      id: auth.player.id,
+      tenant_id: auth.player.tenant_id,
+      external_id: auth.player.external_id,
+      username: auth.player.username,
+      avatar_url: auth.player.avatar_url,
+      // Do not treat as spendable; omit storing coins long-term preference:
+      // still store snapshot for HUD hint only.
+      coins: auth.player.coins,
+    },
+  };
+  void cacheSetJson(cacheKey, toCache, CacheTTL.API_KEY);
+
+  return auth;
 }
 
 export function extractApiKey(req: Request): string | null {

@@ -47,13 +47,19 @@ const client = new pg.Client({
 
 await client.connect();
 try {
+  await client.query(
+    fs.readFileSync(path.join(root, 'db', 'tenant-rtp.sql'), 'utf8'),
+  );
+
+  // Balanced default RTP 95 → ~5% platform hold; per-game overrides via
+  // scripts/configure-ludo-shudo-rtp.mjs
   const tenantRes = await client.query(
     `INSERT INTO tenants (
-       slug, name, status, usdt_balance, coin_to_usdt_rate, wallet_mode,
+       slug, name, status, usdt_balance, coin_to_usdt_rate, wallet_mode, rtp_target,
        cb_user_info_url, cb_change_balance_url, cb_get_sstoken_url, cb_update_sstoken_url,
        cb_app_id, cb_app_key, cb_timeout_ms
      ) VALUES (
-       'ludo-shudo', 'Ludo Shudo', 'active', 5000, 0.0001, 'merchant_callback',
+       'ludo-shudo', 'Ludo Shudo', 'active', 5000, 0.0001, 'merchant_callback', 95,
        $1, $2, $3, $4,
        $5, $6, 8000
      )
@@ -63,6 +69,7 @@ try {
        usdt_balance = GREATEST(tenants.usdt_balance, EXCLUDED.usdt_balance),
        coin_to_usdt_rate = EXCLUDED.coin_to_usdt_rate,
        wallet_mode = 'merchant_callback',
+       rtp_target = COALESCE(tenants.rtp_target, EXCLUDED.rtp_target),
        cb_user_info_url = EXCLUDED.cb_user_info_url,
        cb_change_balance_url = EXCLUDED.cb_change_balance_url,
        cb_get_sstoken_url = EXCLUDED.cb_get_sstoken_url,
@@ -70,7 +77,7 @@ try {
        cb_app_id = EXCLUDED.cb_app_id,
        cb_app_key = EXCLUDED.cb_app_key,
        cb_timeout_ms = EXCLUDED.cb_timeout_ms
-     RETURNING id, slug, name, usdt_balance, coin_to_usdt_rate, wallet_mode,
+     RETURNING id, slug, name, usdt_balance, coin_to_usdt_rate, wallet_mode, rtp_target,
                cb_app_id, cb_app_key`,
     [
       `${GW}/v1/api/apigames/get_user_info`,
@@ -98,6 +105,7 @@ try {
       slug: t.slug,
       name: t.name,
       wallet_mode: t.wallet_mode,
+      rtp_target: Number(t.rtp_target),
       usdt_balance: Number(t.usdt_balance),
       coin_to_usdt_rate: Number(t.coin_to_usdt_rate),
     },
@@ -106,11 +114,13 @@ try {
       cb_app_key: t.cb_app_key,
       gateway: GW,
     },
+    next: 'node scripts/configure-ludo-shudo-rtp.mjs',
   };
   const outPath = path.join(root, 'ludo-shudo-credentials.local.json');
   fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
   console.log(JSON.stringify(out, null, 2));
   console.log(`\nWrote ${outPath}`);
+  console.log('Next: node scripts/configure-ludo-shudo-rtp.mjs');
 } finally {
   await client.end();
 }

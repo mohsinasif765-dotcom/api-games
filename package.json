@@ -12,6 +12,8 @@
     "db:round-cron": "node scripts/apply-round-cron.mjs",
     "tenant:assign-games": "node scripts/assign-tenant-games.mjs",
     "tenant:set-rtp": "node scripts/set-tenant-rtp.mjs",
+    "tenant:ludo-shudo-rtp": "node scripts/configure-ludo-shudo-rtp.mjs",
+    "redis:invalidate": "node scripts/redis-invalidate.mjs",
     "rtp:simulate": "node scripts/simulate-rtp-local.mjs",
     "keys:issue": "node scripts/issue-key.mjs"
   },
@@ -20,6 +22,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "gsap": "^3.15.0",
+    "ioredis": "^5.4.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",

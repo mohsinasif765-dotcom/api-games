@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
-import {
-  extractApiKey,
-  extractTenantSlug,
-  resolveApiKey,
-  type AuthContext,
-} from './api-keys';
-import { ApiErrorCode } from './error-codes';
+import type { AuthContext } from './api-keys';
+import { authenticateAdmin, authenticatePlayer } from './auth';
+import { okResult, errResult, type ApiResult } from './respond';
 
 export function jsonOk<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ ok: true, data }, init);
@@ -19,40 +15,26 @@ export function jsonError(
   return NextResponse.json({ ok: false, error: message, ...extra }, { status });
 }
 
+export function apiResultToNext(result: ApiResult) {
+  return NextResponse.json(result.body, { status: result.status });
+}
+
 export async function requirePlayerAuth(req: Request): Promise<
   | { ok: true; auth: AuthContext }
   | { ok: false; response: NextResponse }
 > {
-  const rawKey = extractApiKey(req);
-  const tenantSlug = extractTenantSlug(req);
-  const auth = await resolveApiKey(rawKey, tenantSlug);
-  if (!auth) {
-    return {
-      ok: false,
-      response: jsonError('Invalid or missing API key', 401, {
-        code: ApiErrorCode.INVALID_API_KEY,
-      }),
-    };
+  const result = await authenticatePlayer(req);
+  if (!result.ok) {
+    return { ok: false, response: apiResultToNext(result.result) };
   }
-  return { ok: true, auth };
+  return { ok: true, auth: result.auth };
 }
 
 export function requireAdmin(req: Request): NextResponse | null {
-  const secret = process.env.GATEWAY_ADMIN_SECRET?.trim();
-  if (!secret) {
-    return jsonError('GATEWAY_ADMIN_SECRET is not configured', 500, {
-      code: ApiErrorCode.ADMIN_SECRET_MISSING,
-    });
-  }
-  const provided =
-    req.headers.get('x-admin-secret')?.trim() ||
-    (req.headers.get('authorization')?.toLowerCase().startsWith('bearer ')
-      ? req.headers.get('authorization')!.slice(7).trim()
-      : null);
-  if (provided !== secret) {
-    return jsonError('Unauthorized admin', 401, {
-      code: ApiErrorCode.UNAUTHORIZED_ADMIN,
-    });
-  }
+  const result = authenticateAdmin(req);
+  if (!result.ok) return apiResultToNext(result.result);
   return null;
 }
+
+export { authenticateAdmin, authenticatePlayer, okResult, errResult };
+export type { ApiResult };

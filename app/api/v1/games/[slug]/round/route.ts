@@ -1,5 +1,7 @@
 import { query } from '@/lib/server/db';
 import { extractApiKey, extractTenantSlug, resolveApiKey } from '@/lib/server/api-keys';
+import { loadGameConfigCached } from '@/lib/server/game-config-cache';
+import { loadActiveRoundCached } from '@/lib/server/round-cache';
 import { jsonError, jsonOk } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -26,47 +28,11 @@ export async function GET(
       tenantId = t.rows[0]?.id ?? null;
     }
 
-    const configRes = await query<{ id: string }>(
-      `SELECT id FROM game_configs
-       WHERE slug = $1 AND status = 'active'
-         AND ($2::uuid IS NULL OR tenant_id = $2 OR tenant_id IS NULL)
-       ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END
-       LIMIT 1`,
-      [slug, tenantId],
-    );
-    const gameId = configRes.rows[0]?.id;
+    const config = await loadGameConfigCached(slug, tenantId);
+    const gameId = config?.id;
     if (!gameId) return jsonError('Game not found', 404);
 
-    // Prefer this tenant's live round so clocks/bets stay scoped.
-    let roundRes = tenantId
-      ? await query(
-          `SELECT *
-           FROM game_rounds
-           WHERE game_id = $1 AND status <> 'finished'
-             AND (tenant_id = $2 OR tenant_id IS NULL)
-           ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END, created_at DESC
-           LIMIT 1`,
-          [gameId, tenantId],
-        )
-      : await query(
-          `SELECT *
-           FROM game_rounds
-           WHERE game_id = $1 AND status <> 'finished'
-           ORDER BY created_at DESC
-           LIMIT 1`,
-          [gameId],
-        );
-
-    if (!roundRes.rows[0] && tenantId) {
-      roundRes = await query(
-        `INSERT INTO game_rounds (game_id, tenant_id, status, betting_ends_at)
-         VALUES ($1, $2, 'betting', now() + interval '30 seconds')
-         RETURNING *`,
-        [gameId, tenantId],
-      );
-    }
-
-    const round = roundRes.rows[0] ?? null;
+    const round = await loadActiveRoundCached(gameId, tenantId);
     return jsonOk({
       game_id: gameId,
       slug,

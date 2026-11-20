@@ -1,4 +1,5 @@
 import {
+  fetchBoot,
   fetchGameConfig,
   fetchGameRound,
   fetchMe,
@@ -23,7 +24,7 @@ export type BootstrappedSession = {
 
 /**
  * End-player API key bootstrap for Phaser / React game shells.
- * Stores key, loads /me + game config + active round from local gateway.
+ * Prefers single /boot call; falls back to /me+/config+/round if needed.
  */
 export async function bootstrapPlayerSession(
   slug: string,
@@ -38,29 +39,37 @@ export async function bootstrapPlayerSession(
   let username: string | null = null;
   let avatarUrl: string | null = null;
   let balance = 0;
-  if (apiKey) {
-    const me = await fetchMe(apiKey);
-    if (me.ok) {
-      playerId = me.data.player.id;
-      username = me.data.player.username;
-      avatarUrl = me.data.player.avatar_url;
-      balance = me.data.player.coins;
-    }
-  }
-
   let gameId: string | null = null;
   let round: Record<string, unknown> | null = null;
   let serverNow: string | null = null;
 
   if (apiKey) {
-    const config = await fetchGameConfig(slug);
-    if (config.ok) gameId = config.data.id;
-
-    const roundRes = await fetchGameRound(slug);
-    if (roundRes.ok) {
-      gameId = gameId || roundRes.data.game_id;
-      round = (roundRes.data.round as Record<string, unknown>) || null;
-      serverNow = roundRes.data.server_now;
+    const boot = await fetchBoot(slug, apiKey);
+    if (boot.ok) {
+      playerId = boot.data.player.id;
+      username = boot.data.player.username;
+      avatarUrl = boot.data.player.avatar_url;
+      balance = boot.data.player.coins;
+      gameId = boot.data.game_id || boot.data.game?.id || null;
+      round = (boot.data.round as Record<string, unknown>) || null;
+      serverNow = boot.data.server_now;
+    } else {
+      // Back-compat if /boot missing on older deploy
+      const me = await fetchMe(apiKey);
+      if (me.ok) {
+        playerId = me.data.player.id;
+        username = me.data.player.username;
+        avatarUrl = me.data.player.avatar_url;
+        balance = me.data.player.coins;
+      }
+      const config = await fetchGameConfig(slug);
+      if (config.ok) gameId = config.data.id;
+      const roundRes = await fetchGameRound(slug);
+      if (roundRes.ok) {
+        gameId = gameId || roundRes.data.game_id;
+        round = (roundRes.data.round as Record<string, unknown>) || null;
+        serverNow = roundRes.data.server_now;
+      }
     }
   }
 

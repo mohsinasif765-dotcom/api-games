@@ -6,12 +6,28 @@
  *
  * Template preference: demo tenant row → global (tenant_id NULL) → any active slug.
  */
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function invalidateRedis({ tenantSlug, tenantId, gameSlugs }) {
+  for (const gameSlug of gameSlugs) {
+    spawnSync(
+      process.execPath,
+      [
+        path.join(root, 'scripts', 'redis-invalidate.mjs'),
+        `--tenant=${tenantSlug}`,
+        `--tenant-id=${tenantId}`,
+        `--game=${gameSlug}`,
+      ],
+      { cwd: root, stdio: 'inherit' },
+    );
+  }
+}
 
 function loadEnvLocal() {
   const envPath = path.join(root, '.env.local');
@@ -169,6 +185,12 @@ try {
       2,
     ),
   );
+
+  invalidateRedis({
+    tenantSlug: tenant.slug,
+    tenantId: tenant.id,
+    gameSlugs: results.filter((r) => r.ok).map((r) => r.slug),
+  });
 } finally {
   await client.end();
 }

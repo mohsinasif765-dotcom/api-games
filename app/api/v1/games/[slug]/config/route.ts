@@ -1,5 +1,6 @@
 import { query } from '@/lib/server/db';
 import { extractTenantSlug, resolveApiKey, extractApiKey } from '@/lib/server/api-keys';
+import { loadGameConfigCached } from '@/lib/server/game-config-cache';
 import { jsonError, jsonOk } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
@@ -26,26 +27,15 @@ export async function GET(
       tenantId = t.rows[0]?.id ?? null;
     }
 
-    const { rows } = await query<{
-      id: string;
-      slug: string;
-      name: string | null;
-      status: string;
-      meta: unknown;
-    }>(
-      `SELECT id, slug, name, status, meta
-       FROM game_configs
-       WHERE slug = $1
-         AND status = 'active'
-         AND ($2::uuid IS NULL OR tenant_id = $2 OR tenant_id IS NULL)
-       ORDER BY CASE WHEN tenant_id = $2 THEN 0 ELSE 1 END
-       LIMIT 1`,
-      [slug, tenantId],
-    );
-
-    const config = rows[0];
+    const config = await loadGameConfigCached(slug, tenantId);
     if (!config) return jsonError('Game not found', 404);
-    return jsonOk(config);
+    return jsonOk({
+      id: config.id,
+      slug: config.slug,
+      name: config.name,
+      status: config.status,
+      meta: config.meta,
+    });
   } catch (e) {
     console.error('[api/v1/games/config]', e);
     return jsonError('Internal error', 500);
