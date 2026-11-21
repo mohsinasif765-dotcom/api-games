@@ -21,6 +21,7 @@ import {
   joinGameRoom,
   leaveGameRoom,
   snapshotToRound,
+  socketClockSample,
 } from '@/lib/gameGateway';
 import { reportGameWin } from '@/lib/flutter-bridge';
 import { ClockSync } from '@/lib/clockSync';
@@ -128,6 +129,9 @@ export class GreedyKingController {
   isMuted = false;
   pingMs = 12;
   socketConnected = false;
+  /** Joined the round room — phase changes arrive by push, polling backs off. */
+  private socketJoined = false;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
   isSpinning = false;
 
   private destroyed = false;
@@ -312,6 +316,7 @@ export class GreedyKingController {
     this.spinHandle = null;
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     if (this.pingTimer) clearInterval(this.pingTimer);
+    if (this.clockTimer) clearInterval(this.clockTimer);
     if (this.roundPollTimer) clearTimeout(this.roundPollTimer);
     if (this.loadGraceTimer) clearTimeout(this.loadGraceTimer);
     this.socketCleanup?.();
@@ -599,17 +604,27 @@ export class GreedyKingController {
     const token = getAuthTokenFromUrl();
     const socket = getGameSocket(token);
 
+    const syncClock = async () => {
+      const s = await socketClockSample(socket);
+      if (s && !this.destroyed) this.clock.sample(s.sentAt, s.receivedAt, s.serverNow);
+    };
     const onConnect = async () => {
       this.socketConnected = true;
       this.emit('socket', true);
       const res = await joinGameRoom(socket, slug);
       if (!res.ok) {
         console.warn('[gameSocket] join failed:', res.error);
+        return;
       }
+      this.socketJoined = true;
+      void syncClock();
     };
     const onDisconnect = () => {
       this.socketConnected = false;
+      this.socketJoined = false;
       this.emit('socket', false);
+      // Push is gone — resume fast HTTP polling right away.
+      this.scheduleRoundPoll(0);
     };
     const onSnapshot = (snap: GameLiveSnapshot) =>
       this.applySocketSnapshot(snap, true);
@@ -617,6 +632,7 @@ export class GreedyKingController {
       this.applySocketSnapshot(snap, false);
     const onConnectError = (err: Error) => {
       this.socketConnected = false;
+      this.socketJoined = false;
       this.emit('socket', false);
       console.warn('[gameSocket] connect_error:', err?.message || err);
     };
@@ -628,6 +644,11 @@ export class GreedyKingController {
     socket.on('game:event', onEvent);
 
     if (socket.connected) void onConnect();
+
+    // Keep the countdown aligned over long sessions (RTT-timed samples).
+    this.clockTimer = setInterval(() => {
+      if (this.socketJoined) void syncClock();
+    }, 15_000);
 
     this.socketCleanup = () => {
       socket.off('connect', onConnect);
@@ -676,6 +697,13 @@ export class GreedyKingController {
   private nextPollDelayMs() {
     const BASE = 900;
     const FAST = 250;
+    if (this.socketJoined) {
+      // Phase changes are pushed; HTTP is only a slow safety net. If the
+      // phase is well overdue the push was probably missed — check quickly.
+      const remaining =
+        this.endsAtMs == null ? 0 : this.endsAtMs - this.clock.serverNow();
+      return remaining < -1500 ? 500 : 5000;
+    }
     if (this.endsAtMs == null) return BASE;
     const remaining = this.endsAtMs - this.clock.serverNow();
     // Last 1.2s of a phase, or phase over but server hasn't advanced yet.
