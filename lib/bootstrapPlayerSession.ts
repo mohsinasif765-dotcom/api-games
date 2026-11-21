@@ -20,6 +20,9 @@ export type BootstrappedSession = {
   gameId: string | null;
   round: Record<string, unknown> | null;
   serverNow: string | null;
+  /** Client clock around the request that produced serverNow (for ClockSync). */
+  serverNowSentAt: number | null;
+  serverNowReceivedAt: number | null;
 };
 
 /**
@@ -42,10 +45,15 @@ export async function bootstrapPlayerSession(
   let gameId: string | null = null;
   let round: Record<string, unknown> | null = null;
   let serverNow: string | null = null;
+  let serverNowSentAt: number | null = null;
+  let serverNowReceivedAt: number | null = null;
 
   if (apiKey) {
+    const sentAt = Date.now();
     const boot = await fetchBoot(slug, apiKey);
     if (boot.ok) {
+      serverNowSentAt = sentAt;
+      serverNowReceivedAt = Date.now();
       playerId = boot.data.player.id;
       username = boot.data.player.username;
       avatarUrl = boot.data.player.avatar_url;
@@ -54,17 +62,26 @@ export async function bootstrapPlayerSession(
       round = (boot.data.round as Record<string, unknown>) || null;
       serverNow = boot.data.server_now;
     } else {
-      // Back-compat if /boot missing on older deploy
-      const me = await fetchMe(apiKey);
+      // Back-compat if /boot missing on older deploy — fetch in parallel.
+      const roundSentAt = Date.now();
+      const [me, config, roundRes] = await Promise.all([
+        fetchMe(apiKey),
+        fetchGameConfig(slug),
+        fetchGameRound(slug).then((r) => {
+          if (r.ok) {
+            serverNowSentAt = roundSentAt;
+            serverNowReceivedAt = Date.now();
+          }
+          return r;
+        }),
+      ]);
       if (me.ok) {
         playerId = me.data.player.id;
         username = me.data.player.username;
         avatarUrl = me.data.player.avatar_url;
         balance = me.data.player.coins;
       }
-      const config = await fetchGameConfig(slug);
       if (config.ok) gameId = config.data.id;
-      const roundRes = await fetchGameRound(slug);
       if (roundRes.ok) {
         gameId = gameId || roundRes.data.game_id;
         round = (roundRes.data.round as Record<string, unknown>) || null;
@@ -92,6 +109,8 @@ export async function bootstrapPlayerSession(
     gameId,
     round,
     serverNow,
+    serverNowSentAt,
+    serverNowReceivedAt,
   };
 }
 

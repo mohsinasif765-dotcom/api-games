@@ -71,6 +71,21 @@ export async function cacheDel(...keys: string[]): Promise<void> {
   }
 }
 
+/** Like cacheSetJson but with millisecond TTL (for phase-boundary caching). */
+export async function cacheSetJsonMs(
+  key: string,
+  value: unknown,
+  ttlMs: number,
+): Promise<void> {
+  const redis = await ensureRedisConnected();
+  if (!redis) return;
+  try {
+    await redis.set(key, JSON.stringify(value), 'PX', Math.max(1, Math.floor(ttlMs)));
+  } catch (e) {
+    console.error('[cache] set', key, e);
+  }
+}
+
 /** Returns true if key was newly set (debounce window open). */
 export async function cacheSetNx(
   key: string,

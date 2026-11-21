@@ -23,6 +23,7 @@ import {
   snapshotToRound,
 } from '@/lib/gameGateway';
 import { reportGameWin } from '@/lib/flutter-bridge';
+import { ClockSync } from '@/lib/clockSync';
 import { fetchUserCoins } from '@/lib/applyWinBalance';
 import {
   wouldExceedOptionCap,
@@ -138,14 +139,15 @@ export class GreedyKingController {
   private chipSelectAudio: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private endsAtMs: number | null = null;
-  private skewMs = 0;
+  private clock = new ClockSync();
   private lastSeq = 0;
   private lastStatus: string | null = null;
   private lastRoundId: string | null = null;
   private lastPhaseKey = '';
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
-  private roundPollTimer: ReturnType<typeof setInterval> | null = null;
+  private roundPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private roundPollInFlight = false;
   private loadGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private balanceChannel: ReturnType<typeof supabase.channel> | null = null;
   private roundsChannel: ReturnType<typeof supabase.channel> | null = null;
@@ -179,6 +181,13 @@ export class GreedyKingController {
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('token');
 
+    // Supabase WebView session (used by profit/history queries) is set up in
+    // parallel with the gateway boot instead of blocking it.
+    const tokenUser = applyWebViewAccessToken(token).catch((e) => {
+      console.warn('[GreedyKing] webview token failed', e);
+      return null;
+    });
+
     const session = await bootstrapPlayerSession(GAME_SLUG);
     if (session.apiKey && session.playerId) {
       this.userId = session.playerId;
@@ -187,7 +196,7 @@ export class GreedyKingController {
       this.balance = session.balance;
       this.emit('balance', this.balance);
     } else {
-      let user = await applyWebViewAccessToken(token);
+      let user = await tokenUser;
       if (!user) {
         const {
           data: { user: existing },
@@ -213,9 +222,14 @@ export class GreedyKingController {
       if (session.round?.id) {
         round = session.round as unknown as GameRound;
         this.currentRound = round;
-        if (session.serverNow) {
-          const serverMs = new Date(session.serverNow).getTime();
-          if (Number.isFinite(serverMs)) this.skewMs = Date.now() - serverMs;
+        if (session.serverNowSentAt != null && session.serverNowReceivedAt != null) {
+          this.clock.sample(
+            session.serverNowSentAt,
+            session.serverNowReceivedAt,
+            session.serverNow,
+          );
+        } else {
+          this.clock.samplePush(session.serverNow);
         }
         this.seedClockFromRound(round);
         this.applyLiveRound(round, true);
@@ -230,30 +244,30 @@ export class GreedyKingController {
       if (configData) {
         this.gameId = configData.id;
 
-        const { data: histData } = await supabase
-          .from('game_rounds')
-          .select('winner_result')
-          .eq('game_id', configData.id)
-          .eq('status', 'finished')
-          .order('created_at', { ascending: false })
-          .limit(10);
+        const [{ data: histData }, , { data: roundData }] = await Promise.all([
+          supabase
+            .from('game_rounds')
+            .select('winner_result')
+            .eq('game_id', configData.id)
+            .eq('status', 'finished')
+            .order('created_at', { ascending: false })
+            .limit(10),
+          this.userId ? this.refreshProfit() : Promise.resolve(),
+          supabase
+            .from('game_rounds')
+            .select('*')
+            .eq('game_id', configData.id)
+            .neq('status', 'finished')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
         if (histData) {
           this.history = histData
             .map((h) => h.winner_result)
             .filter(Boolean)
             .reverse() as string[];
         }
-
-        if (this.userId) await this.refreshProfit();
-
-        const { data: roundData } = await supabase
-          .from('game_rounds')
-          .select('*')
-          .eq('game_id', configData.id)
-          .neq('status', 'finished')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
 
         if (roundData) {
           round = roundData as GameRound;
@@ -298,7 +312,7 @@ export class GreedyKingController {
     this.spinHandle = null;
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     if (this.pingTimer) clearInterval(this.pingTimer);
-    if (this.roundPollTimer) clearInterval(this.roundPollTimer);
+    if (this.roundPollTimer) clearTimeout(this.roundPollTimer);
     if (this.loadGraceTimer) clearTimeout(this.loadGraceTimer);
     this.socketCleanup?.();
     this.socketCleanup = null;
@@ -520,7 +534,7 @@ export class GreedyKingController {
 
   private seedClockFromRound(round: GameRound | null) {
     if (!round) return;
-    let ends: string | null =
+    const ends: string | null =
       round.status === 'betting'
         ? round.betting_ends_at || round.round_ends_at || null
         : round.status === 'spinning'
@@ -533,7 +547,7 @@ export class GreedyKingController {
         : NaN;
       const fallbackMs = Number.isFinite(betEnd)
         ? betEnd + 12_000
-        : Date.now() - this.skewMs + 12_000;
+        : this.clock.serverNow() + 12_000;
       this.endsAtMs = fallbackMs;
       return;
     }
@@ -550,8 +564,8 @@ export class GreedyKingController {
         this.emit('countdown', 0);
         return;
       }
-      const nowAligned = Date.now() - this.skewMs;
-      const sec = Math.max(0, Math.ceil((this.endsAtMs - nowAligned) / 1000));
+      const remainingMs = this.endsAtMs - this.clock.serverNow();
+      const sec = Math.max(0, Math.ceil(remainingMs / 1000));
       this.emit('countdown', sec);
     }, 200);
   }
@@ -628,11 +642,7 @@ export class GreedyKingController {
   private startRoundFallback() {
     if (!this.gameId) return;
 
-    void this.pollRoundFromDb();
-    this.roundPollTimer = setInterval(() => {
-      if (this.destroyed) return;
-      void this.pollRoundFromDb();
-    }, 900);
+    this.scheduleRoundPoll(0);
 
     // API-key webviews can't rely on Supabase realtime RLS
     if (usingApiKeyAuth()) return;
@@ -658,16 +668,53 @@ export class GreedyKingController {
       .subscribe();
   }
 
+  /**
+   * Adaptive poll: 900ms normally, 250ms around a phase boundary so the spin
+   * (and the next betting round) starts as soon as the server flips status,
+   * instead of up to a full poll interval later.
+   */
+  private nextPollDelayMs() {
+    const BASE = 900;
+    const FAST = 250;
+    if (this.endsAtMs == null) return BASE;
+    const remaining = this.endsAtMs - this.clock.serverNow();
+    // Last 1.2s of a phase, or phase over but server hasn't advanced yet.
+    if (remaining <= 1200) return remaining > FAST ? Math.min(BASE, remaining) : FAST;
+    return Math.min(BASE, remaining - 1000);
+  }
+
+  private scheduleRoundPoll(delayMs: number) {
+    if (this.destroyed) return;
+    if (this.roundPollTimer) clearTimeout(this.roundPollTimer);
+    this.roundPollTimer = setTimeout(() => {
+      this.roundPollTimer = null;
+      void this.runRoundPoll();
+    }, Math.max(0, delayMs));
+  }
+
+  private async runRoundPoll() {
+    if (this.destroyed) return;
+    if (!this.roundPollInFlight) {
+      this.roundPollInFlight = true;
+      try {
+        await this.pollRoundFromDb();
+      } catch (e) {
+        console.warn('[GreedyKing] round poll failed', e);
+      } finally {
+        this.roundPollInFlight = false;
+      }
+    }
+    this.scheduleRoundPoll(this.nextPollDelayMs());
+  }
+
   private async pollRoundFromDb() {
     if (!this.gameId || this.destroyed) return;
 
     if (usingApiKeyAuth()) {
-      const res = await fetchGameRound(GAME_SLUG);
+      const sentAt = Date.now();
+      const res = await fetchGameRound(GAME_SLUG, 5000);
       if (!res.ok || !res.data.round || this.destroyed) return;
-      if (res.data.server_now) {
-        const serverMs = new Date(res.data.server_now).getTime();
-        if (Number.isFinite(serverMs)) this.skewMs = Date.now() - serverMs;
-      }
+      this.clock.sample(sentAt, Date.now(), res.data.server_now);
       this.applyLiveRound(res.data.round as unknown as GameRound, false);
       return;
     }
@@ -695,12 +742,7 @@ export class GreedyKingController {
     const key = phaseKey(snap);
     if (!force && key === this.lastPhaseKey) return;
 
-    if (snap.server_now) {
-      const serverMs = new Date(snap.server_now).getTime();
-      if (Number.isFinite(serverMs)) {
-        this.skewMs = Date.now() - serverMs;
-      }
-    }
+    this.clock.samplePush(snap.server_now);
 
     const round = snapshotToRound(snap);
     if (!round) return;

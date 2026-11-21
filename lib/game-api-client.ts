@@ -80,7 +80,11 @@ type RequestOpts = {
   body?: unknown;
   apiKey?: string | null;
   tenant?: string | null;
+  /** Abort after this many ms (default 8s). Weak WebView networks can hang forever otherwise. */
+  timeoutMs?: number;
 };
+
+const DEFAULT_TIMEOUT_MS = 8000;
 
 export async function gameApiFetch<T>(
   path: string,
@@ -95,19 +99,43 @@ export async function gameApiFetch<T>(
   if (apiKey) headers['X-Api-Key'] = apiKey;
   if (tenant) headers['X-Tenant-Id'] = tenant;
 
-  const res = await fetch(`${apiBase()}${path.startsWith('/') ? path : `/${path}`}`, {
-    method: opts.method || (opts.body !== undefined ? 'POST' : 'GET'),
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    cache: 'no-store',
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
 
+  let res: Response;
   let json: { ok?: boolean; data?: T; error?: string; code?: string } | null =
     null;
   try {
-    json = await res.json();
-  } catch {
-    json = null;
+    res = await fetch(
+      `${apiBase()}${path.startsWith('/') ? path : `/${path}`}`,
+      {
+        method: opts.method || (opts.body !== undefined ? 'POST' : 'GET'),
+        headers,
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        cache: 'no-store',
+        signal: controller.signal,
+      },
+    );
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+  } catch (e) {
+    // Network failure / timeout: report as an API error instead of throwing,
+    // so callers (splash boot, polling) never get stuck on a rejected promise.
+    const aborted = (e as { name?: string })?.name === 'AbortError';
+    return {
+      ok: false,
+      error: aborted ? 'Request timed out' : 'Network error',
+      status: 0,
+      code: aborted ? 'TIMEOUT' : 'NETWORK',
+    };
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok || !json?.ok) {
@@ -157,13 +185,13 @@ export async function fetchGameConfig(slug: string) {
   }>(`/games/${encodeURIComponent(slug)}/config`);
 }
 
-export async function fetchGameRound(slug: string) {
+export async function fetchGameRound(slug: string, timeoutMs?: number) {
   return gameApiFetch<{
     game_id: string;
     slug: string;
     round: Record<string, unknown> | null;
     server_now: string;
-  }>(`/games/${encodeURIComponent(slug)}/round`);
+  }>(`/games/${encodeURIComponent(slug)}/round`, { timeoutMs });
 }
 
 export async function placeGameBet(params: {
@@ -186,6 +214,9 @@ export async function placeGameBet(params: {
       amount: params.amount,
       round_id: params.roundId,
     },
+    // Money write: give slow networks room so we don't roll back a bet the
+    // server actually accepted.
+    timeoutMs: 15000,
   });
 }
 
