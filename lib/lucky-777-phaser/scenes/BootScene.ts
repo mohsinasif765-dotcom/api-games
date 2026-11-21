@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { BET_OPTIONS, WHEEL_ART, WHEEL_ART_KEY } from '../config';
+import { WHEEL_ART, WHEEL_ART_KEY } from '../config';
 import type { Lucky777Controller } from '../Lucky777Controller';
 
 export class BootScene extends Phaser.Scene {
@@ -14,21 +14,27 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
+    // The scene draws only the wheel disc (fruits are baked into it); option
+    // art is shown by the HTML HUD, so don't decode it again in WebGL.
     this.load.image(WHEEL_ART_KEY, WHEEL_ART);
-    for (const opt of BET_OPTIONS) {
-      this.load.image(opt.textureKey, opt.image);
-    }
 
     this.load.on('progress', (value: number) => {
       controller?.setLoadProgress(value * 100);
     });
 
-    this.load.on('complete', () => {
-      controller?.setLoadProgress(100);
-      this.time.delayedCall(280, () => {
-        this.scene.start('MainScene');
-      });
+  }
+
+  /**
+   * Runs after preload finishes — also when nothing was queued (Phaser skips
+   * the loader 'complete' event in that case, which would strand the splash).
+   */
+  create() {
+    const controller = this.game.registry.get(
+      'controller',
+    ) as Lucky777Controller | null;
+    controller?.setLoadProgress(100);
+    this.time.delayedCall(280, () => {
+      this.scene.start('MainScene');
     });
   }
 }

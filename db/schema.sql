@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS game_bets (
   amount bigint NOT NULL CHECK (amount > 0),
   merchant_debit_req text,
   merchant_credit_status text NOT NULL DEFAULT 'none'
-    CHECK (merchant_credit_status IN ('none', 'pending', 'done', 'failed')),
+    CHECK (merchant_credit_status IN ('none', 'pending', 'processing', 'done', 'failed')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

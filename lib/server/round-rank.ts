@@ -83,7 +83,12 @@ export async function fetchRoundRanking(params: {
      WHERE b.round_id = $1
        AND p.tenant_id = $2
        AND (b.tenant_id = $2 OR b.tenant_id IS NULL)
-       AND b.bet_option = r.winner_result
+       AND (
+         b.bet_option = r.winner_result
+         -- Roulette: a number result covers several options (red/odd/dozen…)
+         OR (r.winner_result ~ '^[0-9]+$'
+             AND public.roulette_option_matches(r.winner_result::int, b.bet_option))
+       )
      GROUP BY p.id, p.username, p.avatar_url
      ORDER BY amount DESC, p.username ASC NULLS LAST
      LIMIT $3`,

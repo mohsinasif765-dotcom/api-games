@@ -14,7 +14,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: 'Watermelon',
     multiplier: 2,
     color: '#1E6FE0',
-    image: '/lucky77/watermelon.webp?v=1',
+    image: '/lucky77/opt-watermelon.webp',
     textureKey: 'opt_watermelon',
   },
   {
@@ -22,7 +22,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: '77',
     multiplier: 8,
     color: '#FF2D9B',
-    image: '/lucky77/77-emage.webp?v=1',
+    image: '/lucky77/opt-77.webp',
     textureKey: 'opt_seventy_seven',
   },
   {
@@ -30,7 +30,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: 'Apple',
     multiplier: 2,
     color: '#5EC8FF',
-    image: '/lucky77/apple.webp?v=1',
+    image: '/lucky77/opt-apple.webp',
     textureKey: 'opt_plum',
   },
 ];
@@ -78,7 +78,8 @@ export const WHEEL_SEGMENTS: WheelOption[] = [
 ];
 
 /** Spinner disc with fruits baked in (wheel-full.png). */
-export const WHEEL_ART = '/lucky77/wheel-full.webp?v=1';
+/** 720px: drawn at 360 canvas px (scripts/build-phaser-lite-assets.mjs). */
+export const WHEEL_ART = '/lucky77/wheel-full-720.webp';
 export const WHEEL_ART_KEY = 'l777_wheel_full_v1';
 
 export const CHIPS = [

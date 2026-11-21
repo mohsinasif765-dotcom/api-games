@@ -14,8 +14,8 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
     // spinner-art.png kept on disk; live disc is code-baked in MainScene.
+    // Wheel logos: 256px copies (scripts/build-phaser-lite-assets.mjs).
     for (const opt of BET_OPTIONS) {
       this.load.image(opt.textureKey, opt.image);
     }
@@ -24,11 +24,19 @@ export class BootScene extends Phaser.Scene {
       controller?.setLoadProgress(value * 100);
     });
 
-    this.load.on('complete', () => {
-      controller?.setLoadProgress(100);
-      this.time.delayedCall(280, () => {
-        this.scene.start('MainScene');
-      });
+  }
+
+  /**
+   * Runs after preload finishes — also when nothing was queued (Phaser skips
+   * the loader 'complete' event in that case, which would strand the splash).
+   */
+  create() {
+    const controller = this.game.registry.get(
+      'controller',
+    ) as Lucky77Controller | null;
+    controller?.setLoadProgress(100);
+    this.time.delayedCall(280, () => {
+      this.scene.start('MainScene');
     });
   }
 }

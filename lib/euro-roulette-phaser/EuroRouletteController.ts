@@ -21,7 +21,9 @@ import {
   bootstrapPlayerSession,
   usingApiKeyAuth,
 } from '@/lib/bootstrapPlayerSession';
-import { fetchGameRound } from '@/lib/game-api-client';
+import { fetchGameRound,
+  fetchTodayStats,
+} from '@/lib/game-api-client';
 import {
   BET_OPTIONS,
   GAME_NAME,
@@ -514,6 +516,16 @@ export class EuroRouletteController {
 
   private async refreshProfit() {
     if (!this.userId || !this.gameId) return;
+    if (usingApiKeyAuth()) {
+      // Gateway bets are keyed by player_id — the Supabase query below never
+      // matched them, so "Win Today" always showed 0 for API-key players.
+      const res = await fetchTodayStats(GAME_SLUG);
+      if (res.ok && !this.destroyed) {
+        this.todayProfit = res.data.win - res.data.bet;
+        this.emit('profit', this.todayProfit);
+      }
+      return;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { data } = await supabase
@@ -857,18 +869,13 @@ export class EuroRouletteController {
           multiplier: betOnWins > 0 ? winCoins / betOnWins : 1,
           betAmount: betOnWins,
         });
-        this.balance += winCoins;
+        // Late reveal (next round already open) → the server balance fetched for
+        // that round already includes this payout; adding it again would double it.
+        if (this.currentRound?.id === roundId) this.balance += winCoins;
         this.emit('balance', this.balance);
-        const uid = this.userId;
-        if (uid) {
-          window.setTimeout(() => {
-            void fetchUserCoins(uid).then((coins) => {
-              if (coins == null || this.destroyed) return;
-              this.balance = coins;
-              this.emit('balance', this.balance);
-            });
-          }, 700);
-        }
+        // The server pays this win when the spinning phase ends (just after
+        // this reveal); the next betting phase re-syncs the balance. Fetching
+        // now would return the pre-settlement balance and take the win away.
       }
 
       this.emit('spinComplete', {

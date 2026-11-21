@@ -325,7 +325,8 @@ export class MainScene extends Phaser.Scene {
     spark.setPosition(x, y);
     spark.setDepth(5);
     spark.setAlpha(0);
-    spark.setScale(1);
+    // Glow art is pre-cropped to the visible disc — size it to the mask.
+    spark.setDisplaySize(radius * 2, radius * 2);
     spark.setRotation(0);
 
     this.tweens.add({
@@ -349,7 +350,7 @@ export class MainScene extends Phaser.Scene {
     this.tweens.killTweensOf(spark);
     spark.clearMask(true);
     this.winSparkMask?.clear();
-    spark.setVisible(false).setAlpha(1).setScale(1).setRotation(0);
+    spark.setVisible(false).setAlpha(1).setRotation(0);
   }
 
   private moveSpinHand(

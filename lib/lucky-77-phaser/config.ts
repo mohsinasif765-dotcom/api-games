@@ -14,7 +14,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: 'Watermelon',
     multiplier: 2,
     color: '#9B00D9',
-    image: '/fruit-party/watermelon.webp',
+    image: '/77/opt-watermelon.webp',
     textureKey: 'opt_watermelon',
   },
   {
@@ -22,7 +22,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: '77',
     multiplier: 8,
     color: '#2ECC20',
-    image: '/77/symbol-77.webp',
+    image: '/77/opt-77.webp',
     textureKey: 'opt_seventy_seven',
   },
   {
@@ -30,7 +30,7 @@ export const BET_OPTIONS: WheelOption[] = [
     name: 'Mango',
     multiplier: 2,
     color: '#007AE6',
-    image: '/fruit-party/mango.webp',
+    image: '/77/opt-mango.webp',
     textureKey: 'opt_plum',
   },
 ];

@@ -235,6 +235,25 @@ export async function fetchGameHistory(slug: string, limit = 40) {
   );
 }
 
+export type TodayStats = {
+  /** Total payouts on winning bets today. */
+  win: number;
+  /** Total stake today (settled rounds). */
+  bet: number;
+  /** Sum of per-bet profit on winning bets (losses ignored). */
+  net_win: number;
+  since: string;
+};
+
+/** Player's settled totals for today in one game (local midnight → now). */
+export async function fetchTodayStats(slug: string) {
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  return gameApiFetch<TodayStats>(
+    `/games/${encodeURIComponent(slug)}/today?since=${encodeURIComponent(since.toISOString())}`,
+  );
+}
+
 export type RevenueRankRow = {
   rank: number;
   playerId: string;

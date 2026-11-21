@@ -139,6 +139,49 @@ BEGIN
 END;
 $$;
 
+-- Multiplier of option `p_id` in a game's meta.options (1 when absent, as before).
+CREATE OR REPLACE FUNCTION public.option_multiplier(p_options jsonb, p_id text)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT COALESCE(
+    (SELECT (o->>'multiplier')::numeric
+       FROM jsonb_array_elements(COALESCE(p_options, '[]'::jsonb)) o
+      WHERE o->>'id' = p_id
+      LIMIT 1),
+    1
+  );
+$$;
+
+-- European roulette: does number p_n (0–36) win bet option p_opt?
+-- Must match lib/euro-roulette-phaser/config.ts matchingCategories().
+CREATE OR REPLACE FUNCTION public.roulette_option_matches(p_n int, p_opt text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE p_opt
+    WHEN 'zero'   THEN p_n = 0
+    WHEN 'red'    THEN p_n = ANY (ARRAY[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36])
+    WHEN 'black'  THEN p_n BETWEEN 1 AND 36
+                       AND NOT (p_n = ANY (ARRAY[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]))
+    WHEN 'odd'    THEN p_n BETWEEN 1 AND 36 AND p_n % 2 = 1
+    WHEN 'even'   THEN p_n BETWEEN 1 AND 36 AND p_n % 2 = 0
+    WHEN 'dozen1' THEN p_n BETWEEN 1 AND 12
+    WHEN 'dozen2' THEN p_n BETWEEN 13 AND 24
+    WHEN 'dozen3' THEN p_n BETWEEN 25 AND 36
+    ELSE p_opt = p_n::text
+  END;
+$$;
+
+-- Round engine tick. Called by pg_cron (via tick_game_rounds_locked) and by the
+-- gateway RoundEngine at exact phase ends.
+--
+-- Standard games: one winning option (RTP-weighted), bets on it pay amount×multiplier.
+-- Roulette games (meta.kind = 'roulette', e.g. euro_roulette): a number 0–36 is
+-- drawn uniformly (European roulette, 97.3% RTP on every bet type) and every bet
+-- whose option covers that number pays amount × that option's multiplier.
 CREATE OR REPLACE FUNCTION public.tick_game_rounds()
 RETURNS integer
 LANGUAGE plpgsql
@@ -147,7 +190,6 @@ DECLARE
   cfg RECORD;
   rnd RECORD;
   winner text;
-  opt jsonb;
   mult numeric;
   bet RECORD;
   payout bigint;
@@ -160,6 +202,9 @@ DECLARE
   v_charge numeric(24, 8);
   v_new_bal numeric(24, 8);
   v_rtp numeric;
+  v_roulette boolean;
+  v_win boolean;
+  v_mult numeric;
 BEGIN
   FOR cfg IN
     SELECT gc.id AS game_id, gc.tenant_id, gc.meta
@@ -177,6 +222,7 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- betting → spinning: decide the result
   FOR rnd IN
     SELECT
       gr.*,
@@ -198,10 +244,14 @@ BEGIN
       AND gr.betting_ends_at <= now()
     FOR UPDATE OF gr SKIP LOCKED
   LOOP
-    v_rtp := rnd.effective_rtp;
-    winner := public.pick_weighted_option(rnd.meta->'options', v_rtp);
-    IF winner IS NULL THEN
-      winner := 'bmw';
+    IF COALESCE(rnd.meta->>'kind', '') = 'roulette' THEN
+      winner := floor(random() * 37)::int::text;
+    ELSE
+      v_rtp := rnd.effective_rtp;
+      winner := public.pick_weighted_option(rnd.meta->'options', v_rtp);
+      IF winner IS NULL THEN
+        winner := 'bmw';
+      END IF;
     END IF;
     spin_secs := COALESCE((rnd.meta->>'spinning_seconds')::int, 12);
 
@@ -215,6 +265,7 @@ BEGIN
     advanced := advanced + 1;
   END LOOP;
 
+  -- spinning → finished: settle bets, open the next round
   FOR rnd IN
     SELECT gr.*, gc.meta, gc.tenant_id AS cfg_tenant
     FROM game_rounds gr
@@ -227,20 +278,25 @@ BEGIN
     FOR UPDATE OF gr SKIP LOCKED
   LOOP
     winner := rnd.winner_result;
-    mult := 1;
-    FOR opt IN SELECT * FROM jsonb_array_elements(COALESCE(rnd.meta->'options', '[]'::jsonb))
-    LOOP
-      IF opt->>'id' = winner THEN
-        mult := COALESCE((opt->>'multiplier')::numeric, 1);
-        EXIT;
-      END IF;
-    END LOOP;
+    -- Rounds that were already spinning with a category result when roulette
+    -- mode shipped settle the old way (exact option match).
+    v_roulette := COALESCE(rnd.meta->>'kind', '') = 'roulette'
+                  AND winner ~ '^[0-9]+$';
+    mult := public.option_multiplier(rnd.meta->'options', winner);
 
     FOR bet IN
       SELECT * FROM game_bets WHERE round_id = rnd.id FOR UPDATE
     LOOP
-      IF bet.bet_option = winner THEN
-        payout := FLOOR(bet.amount * mult)::bigint;
+      IF v_roulette THEN
+        v_win := public.roulette_option_matches(winner::int, bet.bet_option);
+        v_mult := public.option_multiplier(rnd.meta->'options', bet.bet_option);
+      ELSE
+        v_win := bet.bet_option = winner;
+        v_mult := mult;
+      END IF;
+
+      IF v_win THEN
+        payout := FLOOR(bet.amount * v_mult)::bigint;
         UPDATE game_bets
         SET is_win = true,
             payout_amount = payout,
@@ -323,4 +379,17 @@ BEGIN
 END;
 $$;
 
-SELECT cron.schedule('tick-game-rounds', '1 second', $$SELECT public.tick_game_rounds()$$);
+-- One tick at a time across gateway engine instances and pg_cron (-1 = busy).
+CREATE OR REPLACE FUNCTION public.tick_game_rounds_locked()
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT pg_try_advisory_xact_lock(hashtext('api_games.tick_game_rounds')) THEN
+    RETURN -1;
+  END IF;
+  RETURN public.tick_game_rounds();
+END;
+$$;
+
+SELECT cron.schedule('tick-game-rounds', '1 second', $$SELECT public.tick_game_rounds_locked()$$);

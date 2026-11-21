@@ -17,11 +17,13 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    this.load.image('logo', '/greedy-baby/baby.webp');
+    // (baby.webp is HUD art — not used by the scene.)
     this.load.image('bet_box', '/greedy-lion/bet-box.webp');
-    this.load.image('bet_coin', '/fruit-party/chips/coin_gold.webp');
+    // 64px coin (shown ~11px) instead of the 400px chip.
+    this.load.image('bet_coin', '/greedy-lion/bet-coin.webp');
     this.load.image('spin_hand', '/greedy-lion/spin-hand.webp');
-    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
+    // Pre-cropped win glow (what spark.setScale(1) used to reveal), 3 KB vs 86 KB.
+    this.load.image('wing_spark', '/greedy-lion/wing-spark-glow.webp');
     for (const food of FOOD_ITEMS) {
       this.load.image(food.textureKey, food.image);
     }
@@ -30,11 +32,19 @@ export class BootScene extends Phaser.Scene {
       controller?.setLoadProgress(value * 100);
     });
 
-    this.load.on('complete', () => {
-      controller?.setLoadProgress(100);
-      this.time.delayedCall(280, () => {
-        this.scene.start('MainScene');
-      });
+  }
+
+  /**
+   * Runs after preload finishes — also when nothing was queued (Phaser skips
+   * the loader 'complete' event in that case, which would strand the splash).
+   */
+  create() {
+    const controller = this.game.registry.get(
+      'controller',
+    ) as GreedyBabyController | null;
+    controller?.setLoadProgress(100);
+    this.time.delayedCall(280, () => {
+      this.scene.start('MainScene');
     });
   }
 }

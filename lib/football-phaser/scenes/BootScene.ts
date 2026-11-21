@@ -17,18 +17,26 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    this.load.image('splash', '/footbal2/seven.webp');
-    this.load.image('wing_spark', '/greedy-lion/wing-spark.webp');
+    // No textures: the wheel scene draws with Graphics only, and the splash
+    // art (/footbal2/seven.webp) is shown by the HTML splash.
 
     this.load.on('progress', (value: number) => {
       controller?.setLoadProgress(value * 100);
     });
 
-    this.load.on('complete', () => {
-      controller?.setLoadProgress(100);
-      this.time.delayedCall(280, () => {
-        this.scene.start('MainScene');
-      });
+  }
+
+  /**
+   * Runs after preload finishes — also when nothing was queued (Phaser skips
+   * the loader 'complete' event in that case, which would strand the splash).
+   */
+  create() {
+    const controller = this.game.registry.get(
+      'controller',
+    ) as FootballController | null;
+    controller?.setLoadProgress(100);
+    this.time.delayedCall(280, () => {
+      this.scene.start('MainScene');
     });
   }
 }

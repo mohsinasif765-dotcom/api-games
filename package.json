@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/gen-warmup-manifest.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,7 +16,9 @@
     "tenant:ludo-shudo-rtp": "node scripts/configure-ludo-shudo-rtp.mjs",
     "redis:invalidate": "node scripts/redis-invalidate.mjs",
     "rtp:simulate": "node scripts/simulate-rtp-local.mjs",
-    "keys:issue": "node scripts/issue-key.mjs"
+    "keys:issue": "node scripts/issue-key.mjs",
+    "assets:warmup-manifest": "node scripts/gen-warmup-manifest.mjs",
+    "assets:recompress": "node scripts/recompress-lossless-webp.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

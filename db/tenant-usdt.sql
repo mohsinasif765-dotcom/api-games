@@ -58,7 +58,7 @@ BEGIN
   ) THEN
     ALTER TABLE game_bets
       ADD CONSTRAINT game_bets_merchant_credit_status_check
-      CHECK (merchant_credit_status IN ('none', 'pending', 'done', 'failed'));
+      CHECK (merchant_credit_status IN ('none', 'pending', 'processing', 'done', 'failed'));
   END IF;
 END $$;
 

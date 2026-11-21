@@ -12,6 +12,7 @@ H5 games talk to the host app through `lib/flutter-bridge.ts`.
 | `reportGameWin({...})` | Win SVGA + room chat card |
 | `haptic('light'\|'medium'\|'heavy'\|'success'\|'error')` | Vibration |
 | `notifyReady({...})` | Game finished loading |
+| `warmupDone({...})` | Only from the hidden `/warmup` page — game files pre-cached (see `docs/flutter-warmup.md`) |
 
 Also available on `window.GameBridge`.
 
