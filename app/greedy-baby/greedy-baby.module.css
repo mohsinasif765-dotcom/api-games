@@ -1,5 +1,6 @@
 .viewport {
-  background: linear-gradient(180deg, #6ec8f0 0%, #a8dff8 42%, #c5ebff 100%);
+  --game-splash-art: url('/greedy-baby/splash.webp');
+  background-color: #6ec8f0;
 }
 
 .root {
@@ -10,73 +11,6 @@
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
-}
-
-.sky {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.cloud {
-  position: absolute;
-  height: auto;
-  object-fit: contain;
-  opacity: 0.88;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.cloudA {
-  top: 6%;
-  left: 0;
-  width: min(78%, 22rem);
-  animation: cloudDriftA 48s linear infinite;
-}
-
-.cloudB {
-  top: 22%;
-  left: 0;
-  width: min(52%, 14rem);
-  opacity: 0.75;
-  animation: cloudDriftB 32s linear infinite;
-}
-
-.cloudC {
-  top: 40%;
-  left: 0;
-  width: min(64%, 18rem);
-  opacity: 0.65;
-  animation: cloudDriftC 62s linear infinite;
-}
-
-@keyframes cloudDriftA {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(135%);
-  }
-}
-
-@keyframes cloudDriftB {
-  0% {
-    transform: translateX(200%);
-  }
-  100% {
-    transform: translateX(-120%);
-  }
-}
-
-@keyframes cloudDriftC {
-  0% {
-    transform: translateX(-80%);
-  }
-  100% {
-    transform: translateX(160%);
-  }
 }
 
 .canvasHost {

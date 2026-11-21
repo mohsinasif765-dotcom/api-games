@@ -1,5 +1,6 @@
 .viewport {
-  background-color: #070312;
+  --game-splash-art: url('/77/splash.webp');
+  background: #0a0418 url('/77/background-emage.jpeg?v=4') center / cover no-repeat;
 }
 
 .root {
@@ -20,12 +21,6 @@
   flex-direction: column;
   overflow: visible;
   pointer-events: none;
-  /* full stage: curtains → magenta rim → blue floor (reference match) */
-  background-color: #0a0418;
-  background-image: url('/77/background-emage.jpeg?v=4');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: 100% 100%;
 }
 
 .hud > * {

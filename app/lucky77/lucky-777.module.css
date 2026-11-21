@@ -1,6 +1,6 @@
 .viewport {
-  /* Outer letterbox — stage art lives on .hud */
-  background-color: #070312;
+  --game-splash-art: url('/lucky77/splace-screen.jpeg?v=2');
+  background: #0a0418 url('/lucky77/background-emage.jpeg') center / cover no-repeat;
 }
 
 .root {
@@ -20,12 +20,6 @@
   display: flex;
   flex-direction: column;
   pointer-events: none;
-  /* Full stage: spotlights → floor (reference match) */
-  background-color: #0a0418;
-  background-image: url('/lucky77/background-emage.jpeg');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: 100% 100%;
 }
 
 .hud > * {

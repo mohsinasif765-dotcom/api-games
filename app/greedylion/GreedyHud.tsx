@@ -263,33 +263,6 @@ export function GreedyHud({
         </div>
       )}
 
-      {/* Decorative clouds load after the splash — off the cold-start path. */}
-      {!splash && (
-      <div className={styles.sky} aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud1.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudA}`}
-          draggable={false}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud2.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudB}`}
-          draggable={false}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud1.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudC}`}
-          draggable={false}
-        />
-      </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           <div className={styles.iconCol}>

@@ -1,15 +1,6 @@
 .viewportBackground {
-  background-color: #1a4f6e;
-  background-image:
-    linear-gradient(
-      90deg,
-      rgba(10, 35, 52, 0.92) 0%,
-      rgba(10, 35, 52, 0.35) 18%,
-      transparent 36%,
-      transparent 64%,
-      rgba(10, 35, 52, 0.35) 82%,
-      rgba(10, 35, 52, 0.92) 100%
-    );
+  --game-splash-art: url('/greedy-lion/splash.webp');
+  background-color: #6ec8f0;
 }
 
 .root {
@@ -20,78 +11,6 @@
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
-}
-
-.sky {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: min(100%, 28rem);
-  transform: translateX(-50%);
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-  background: linear-gradient(180deg, #6ec8f0 0%, #a8dff8 42%, #c5ebff 100%);
-}
-
-.cloud {
-  position: absolute;
-  height: auto;
-  object-fit: contain;
-  opacity: 0.88;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.cloudA {
-  top: 6%;
-  left: 0;
-  width: min(78%, 22rem);
-  animation: cloudDriftA 48s linear infinite;
-}
-
-.cloudB {
-  top: 22%;
-  left: 0;
-  width: min(52%, 14rem);
-  opacity: 0.75;
-  animation: cloudDriftB 32s linear infinite;
-}
-
-.cloudC {
-  top: 40%;
-  left: 0;
-  width: min(64%, 18rem);
-  opacity: 0.65;
-  animation: cloudDriftC 62s linear infinite;
-}
-
-@keyframes cloudDriftA {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(28rem);
-  }
-}
-
-@keyframes cloudDriftB {
-  0% {
-    transform: translateX(28rem);
-  }
-  100% {
-    transform: translateX(-120%);
-  }
-}
-
-@keyframes cloudDriftC {
-  0% {
-    transform: translateX(-80%);
-  }
-  100% {
-    transform: translateX(28rem);
-  }
 }
 
 .canvasHost {

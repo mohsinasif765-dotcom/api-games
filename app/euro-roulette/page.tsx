@@ -89,20 +89,23 @@ export default function EuroRoulettePage() {
     };
   }, []);
 
+  const loading = splash || !controller;
+
   return (
-    <div className={`game-viewport ${styles.root} ${fredoka.className}`}>
+    <div
+      data-loading={loading}
+      className={`game-viewport ${styles.root} ${fredoka.className}`}
+      style={{
+        '--available-frame-w': `${width ? width / scale : MIN_FRAME_WIDTH}px`,
+        '--frame-h': `${height ? height / scale : MIN_FRAME_HEIGHT}px`,
+        '--game-scale': scale,
+      } as CSSProperties}
+    >
       <div ref={viewportRef} className="game-viewport-content">
-        <div
-          className={styles.frame}
-          style={{
-            '--available-frame-w': `${width ? width / scale : MIN_FRAME_WIDTH}px`,
-            '--frame-h': `${height ? height / scale : MIN_FRAME_HEIGHT}px`,
-            transform: `scale(${scale})`,
-          } as CSSProperties}
-        >
+        <div className={styles.frame} style={{ transform: `scale(${scale})` }}>
           <EuroRouletteHud
             controller={controller}
-            splash={splash || !controller}
+            splash={loading}
             loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />

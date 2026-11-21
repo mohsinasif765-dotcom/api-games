@@ -92,8 +92,10 @@ export default function FootballPhaserPage() {
     };
   }, []);
 
+  const loading = splash || !controller;
+
   return (
-    <div className={`game-viewport ${styles.root}`}>
+    <div data-loading={loading} className={`game-viewport ${styles.root}`}>
       <div ref={viewportRef} className="game-viewport-content">
         <div
           className={styles.frame}
@@ -105,7 +107,7 @@ export default function FootballPhaserPage() {
         >
           <FootballHud
             controller={controller}
-            splash={splash || !controller}
+            splash={loading}
             loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />

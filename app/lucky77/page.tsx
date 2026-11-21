@@ -73,8 +73,10 @@ export default function Lucky777Page() {
     };
   }, []);
 
+  const loading = splash || !controller;
+
   return (
-    <div className={`game-viewport ${styles.viewport}`}>
+    <div data-loading={loading} className={`game-viewport ${styles.viewport}`}>
       <div className="game-viewport-content" ref={viewportRef}>
         <div
           className={styles.root}
@@ -82,7 +84,7 @@ export default function Lucky777Page() {
         >
           <Lucky777Hud
             controller={controller}
-            splash={splash || !controller}
+            splash={loading}
             loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />

@@ -1,0 +1,45 @@
+.sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  background: linear-gradient(180deg, #6ec8f0 0%, #a8dff8 42%, #c5ebff 100%);
+}
+
+.cloud {
+  position: absolute;
+  left: 0;
+  height: auto;
+  animation: cloudDrift 48s linear infinite;
+}
+
+.highCloud {
+  top: 6%;
+  width: min(78%, 22rem);
+  opacity: 0.88;
+}
+
+.middleCloud {
+  top: 22%;
+  width: min(52%, 14rem);
+  opacity: 0.75;
+  animation-duration: 32s;
+  animation-direction: reverse;
+}
+
+.lowCloud {
+  top: 40%;
+  width: min(64%, 18rem);
+  opacity: 0.65;
+  animation-duration: 62s;
+}
+
+@keyframes cloudDrift {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}

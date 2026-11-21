@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { preconnect } from 'react-dom';
+import { GreedySky } from '@/components/GreedySky';
 import { useGameViewport } from '@/components/useGameViewport';
 import { GreedyKingController } from '@/lib/greedy-king-phaser/GreedyKingController';
 import { CRITICAL_IMAGES } from '@/lib/greedy-king-phaser/config';
@@ -118,8 +119,11 @@ export default function GreedyKingPage() {
     };
   }, []);
 
+  const loading = splash || !controller;
+
   return (
-    <div className={`game-viewport ${styles.viewportBackground}`}>
+    <div data-loading={loading} className={`game-viewport ${styles.viewportBackground}`}>
+      {!loading && <GreedySky />}
       <div className="game-viewport-content" ref={viewportRef}>
         <div
           className={styles.root}
@@ -127,7 +131,7 @@ export default function GreedyKingPage() {
         >
           <GreedyHud
             controller={controller}
-            splash={splash || !controller}
+            splash={loading}
             loadProgress={loadProgress}
           />
         </div>

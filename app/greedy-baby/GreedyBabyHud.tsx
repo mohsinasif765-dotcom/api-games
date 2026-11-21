@@ -160,30 +160,6 @@ export function GreedyBabyHud({
         </div>
       )}
 
-      <div className={styles.sky} aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud1.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudA}`}
-          draggable={false}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud2.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudB}`}
-          draggable={false}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/greedy-lion/cloud1.webp"
-          alt=""
-          className={`${styles.cloud} ${styles.cloudC}`}
-          draggable={false}
-        />
-      </div>
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           <div className={styles.iconCol}>

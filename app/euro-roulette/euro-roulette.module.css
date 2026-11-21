@@ -7,15 +7,7 @@
   --wood-light: #7a5636;
   --yellow-btn: #f0c418;
   --yellow-btn-edge: #c9970a;
-  background-color: #041f18;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  color: #fff;
-}
-
-.frame {
+  --game-splash-art: url('/euro-roulette/splash.webp');
   --frame-w: min(var(--available-frame-w), 26.5rem);
   --wood-bar-h: 4.35rem;
   --bet-cell-h: 4.85rem;
@@ -41,6 +33,26 @@
     calc(var(--frame-h) * 0.48),
     23rem
   );
+  background: radial-gradient(ellipse at 50% 78%, #009883, #006349 75%, #00563e);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  color: #fff;
+}
+
+.root:not([data-loading='true'])::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  /* The visible waterfall edge follows the scaled wheel center. */
+  height: calc(env(safe-area-inset-top, 0px) + var(--green-seam) * var(--game-scale));
+  z-index: -1;
+  background: url('/euro-roulette/scenic-top-v2.webp') center bottom / cover no-repeat;
+  pointer-events: none;
+}
+
+.frame {
   position: relative;
   width: var(--frame-w);
   height: var(--frame-h);
@@ -59,12 +71,6 @@
   margin: 0;
   overflow: hidden;
   pointer-events: none;
-  background-color: #01704a;
-  background-image: url('/euro-roulette/background-emage.webp?v=7');
-  background-repeat: no-repeat;
-  background-position: center top;
-  /* scenic fills frame above woodBar */
-  background-size: 100% calc(100% - var(--wood-bar-h));
 }
 
 .hud > * {
