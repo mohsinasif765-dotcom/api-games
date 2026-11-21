@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { GreedyKingController } from '@/lib/greedy-king-phaser/GreedyKingController';
+import { useEffect, useState } from 'react';
+import { preconnect } from 'react-dom';
+import { useGameViewport } from '@/components/useGameViewport';
+import { GreedyKingController } from '@/lib/greedy-king-phaser/GreedyKingController';
+import { CRITICAL_IMAGES } from '@/lib/greedy-king-phaser/config';
+import { preloadImages } from '@/lib/preloadImages';
 import { GreedyHud } from './GreedyHud';
 import styles from './greedy-phaser.module.css';
 
@@ -9,28 +13,47 @@ import styles from './greedy-phaser.module.css';
 const SPLASH_FAILSAFE_MS = 10_000;
 /** Short beat after 100% so the bar visibly completes. */
 const SPLASH_EXIT_DELAY_MS = 300;
+const DESIGN_WIDTH = 390;
+const MIN_STAGE_HEIGHT = 680;
+const MAX_STAGE_WIDTH = 448;
+
+const GAME_API_ORIGIN = (() => {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_GAME_API_BASE ||
+        'https://games.app.zuvodev.com/api/v1',
+    ).origin;
+  } catch {
+    return null;
+  }
+})();
 
 /**
- * Hybrid shell: Phaser canvas (wheel visuals) + HTML overlay (all text / chrome).
- * Ported from SK Live greedy-phaser.
+ * Greedy Lion shell: HTML HUD + DOM wheel effects (no Phaser/WebGL).
  *
- * Boot runs in parallel: Phaser asset preload and the API session (/boot)
- * start at the same time, and the splash hides when both are done (or after
- * SPLASH_FAILSAFE_MS, whichever comes first).
+ * Cold start runs in parallel: critical images preload and the API session
+ * (/boot) start at the same time; the splash hides when both are done (or
+ * after SPLASH_FAILSAFE_MS, whichever comes first).
  */
-export default function GreedyKingPhaserPage() {
-  const hostRef = useRef<HTMLDivElement>(null);
+export default function GreedyKingPage() {
+  // Open the TLS connection to the game API while the page is still loading.
+  if (GAME_API_ORIGIN) preconnect(GAME_API_ORIGIN, { crossOrigin: 'anonymous' });
+
   const [controller, setController] = useState<GreedyKingController | null>(
     null,
   );
   const [splash, setSplash] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
+  const { viewportRef, width, height, scale } = useGameViewport(
+    DESIGN_WIDTH,
+    MIN_STAGE_HEIGHT,
+    1,
+  );
+  const stageWidth = Math.min(MAX_STAGE_WIDTH, Math.max(DESIGN_WIDTH, width / scale));
+  const stageHeight = Math.max(MIN_STAGE_HEIGHT, height / scale);
 
   useEffect(() => {
     let destroyed = false;
-    let game: import('phaser').Game | null = null;
-    let instance: GreedyKingController | null = null;
-    let offProgress: (() => void) | null = null;
     let assetsDone = false;
     let sessionDone = false;
     let splashClosed = false;
@@ -51,81 +74,64 @@ export default function GreedyKingPhaserPage() {
       exitTimer = window.setTimeout(closeSplash, SPLASH_EXIT_DELAY_MS);
     };
 
-    // Armed first: nothing below (network, chunk load, Phaser) can leave the
-    // player staring at a spinner.
+    // Armed first: nothing below (network, decode) can leave the player
+    // staring at a spinner.
     const failsafe = window.setTimeout(closeSplash, SPLASH_FAILSAFE_MS);
 
-    const boot = async () => {
-      const [{ createGreedyKingGame }, { GreedyKingController }] =
-        await Promise.all([
-          import('@/lib/greedy-king-phaser/createGame'),
-          import('@/lib/greedy-king-phaser/GreedyKingController'),
-        ]);
+    const ctrl = new GreedyKingController();
+    // Hand the controller to React after this effect commits (HUD/WheelFx
+    // subscribe in their own effects; `ready` is replayed via their state).
+    queueMicrotask(() => {
+      if (!destroyed) setController(ctrl);
+    });
+
+    // Session (auth + balance + round).
+    void ctrl
+      .start()
+      .catch((e) => {
+        console.error('[greedylion] session boot failed', e);
+        ctrl.toast('Connection problem — retrying…');
+      })
+      .finally(() => {
+        sessionDone = true;
+        if (assetsDone) setLoadProgress(100);
+        maybeCloseSplash();
+      });
+
+    // Art visible on the first frame after the splash.
+    void preloadImages(CRITICAL_IMAGES, (pct) => {
       if (destroyed) return;
-
-      const ctrl = new GreedyKingController();
-      instance = ctrl;
-      offProgress = ctrl.on('loadProgress', (pct) => {
-        // Assets are ~90% of the bar; the last 10% is the session.
-        setLoadProgress((prev) =>
-          Math.max(prev, Math.round(pct * (sessionDone ? 1 : 0.9))),
-        );
-        if (pct >= 100) {
-          assetsDone = true;
-          maybeCloseSplash();
-        }
-      });
-      setController(ctrl);
-
-      // Session (auth + balance + round) — does not block asset loading.
-      void ctrl
-        .start()
-        .catch((e) => {
-          console.error('[greedylion] session boot failed', e);
-          ctrl.toast('Connection problem — retrying…');
-        })
-        .finally(() => {
-          sessionDone = true;
-          if (assetsDone) setLoadProgress(100);
-          maybeCloseSplash();
-        });
-
-      // Wait for HUD wheel host to mount, then start Phaser preload.
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
-      if (destroyed || !hostRef.current) return;
-
-      game = createGreedyKingGame({
-        parent: hostRef.current,
-        controller: ctrl,
-      });
-    };
-
-    void boot().catch((e) => {
-      console.error('[greedylion] boot failed', e);
-      closeSplash();
+      // Images are ~90% of the bar; the last 10% is the session.
+      setLoadProgress((prev) =>
+        Math.max(prev, Math.round(pct * (sessionDone ? 1 : 0.9))),
+      );
+    }).then(() => {
+      assetsDone = true;
+      maybeCloseSplash();
     });
 
     return () => {
       destroyed = true;
       window.clearTimeout(failsafe);
       if (exitTimer != null) window.clearTimeout(exitTimer);
-      offProgress?.();
-      game?.destroy(true);
-      game = null;
-      instance?.destroy();
-      instance = null;
+      ctrl.destroy();
     };
   }, []);
 
   return (
-    <div className={styles.root}>
-      <GreedyHud
-        controller={controller}
-        splash={splash || !controller}
-        loadProgress={loadProgress}
-        canvasHostRef={hostRef}
-      />
+    <div className={`game-viewport ${styles.viewportBackground}`}>
+      <div className="game-viewport-content" ref={viewportRef}>
+        <div
+          className={styles.root}
+          style={{ width: stageWidth, height: stageHeight, transform: `scale(${scale})` }}
+        >
+          <GreedyHud
+            controller={controller}
+            splash={splash || !controller}
+            loadProgress={loadProgress}
+          />
+        </div>
+      </div>
     </div>
   );
 }

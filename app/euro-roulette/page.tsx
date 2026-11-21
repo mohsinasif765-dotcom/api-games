@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Fredoka } from 'next/font/google';
+import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { EuroRouletteController } from '@/lib/euro-roulette-phaser/EuroRouletteController';
 import { EuroRouletteHud } from './EuroRouletteHud';
@@ -12,7 +13,15 @@ const fredoka = Fredoka({
   weight: ['600', '700'],
 });
 
+const MIN_FRAME_WIDTH = 360;
+const MIN_FRAME_HEIGHT = 630;
+
 export default function EuroRoulettePage() {
+  const { viewportRef, scale, width, height } = useGameViewport(
+    MIN_FRAME_WIDTH,
+    MIN_FRAME_HEIGHT,
+    1,
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const [controller, setController] = useState<EuroRouletteController | null>(
     null,
@@ -81,13 +90,24 @@ export default function EuroRoulettePage() {
   }, []);
 
   return (
-    <div className={`${styles.root} ${fredoka.className}`}>
-      <EuroRouletteHud
-        controller={controller}
-        splash={splash || !controller}
-        loadProgress={loadProgress}
-        canvasHostRef={hostRef}
-      />
+    <div className={`game-viewport ${styles.root} ${fredoka.className}`}>
+      <div ref={viewportRef} className="game-viewport-content">
+        <div
+          className={styles.frame}
+          style={{
+            '--available-frame-w': `${width ? width / scale : MIN_FRAME_WIDTH}px`,
+            '--frame-h': `${height ? height / scale : MIN_FRAME_HEIGHT}px`,
+            transform: `scale(${scale})`,
+          } as CSSProperties}
+        >
+          <EuroRouletteHud
+            controller={controller}
+            splash={splash || !controller}
+            loadProgress={loadProgress}
+            canvasHostRef={hostRef}
+          />
+        </div>
+      </div>
     </div>
   );
 }

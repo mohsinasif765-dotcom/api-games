@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
+import { GAME_WIDTH } from '@/lib/greedy-baby-phaser/config';
 import type { GreedyBabyController } from '@/lib/greedy-baby-phaser/GreedyBabyController';
 import { GreedyBabyHud } from './GreedyBabyHud';
 import styles from './greedy-baby.module.css';
+
+const MIN_STAGE_HEIGHT = 540;
 
 /**
  * Hybrid shell: Phaser canvas (wheel visuals) + HTML overlay (all text / chrome).
@@ -12,6 +16,12 @@ import styles from './greedy-baby.module.css';
  */
 export default function GreedyBabyPhaserPage() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const { viewportRef, scale, height } = useGameViewport(
+    GAME_WIDTH,
+    MIN_STAGE_HEIGHT,
+    1,
+  );
+  const stageHeight = Math.max(MIN_STAGE_HEIGHT, height / scale);
   const [controller, setController] = useState<GreedyBabyController | null>(
     null,
   );
@@ -72,13 +82,24 @@ export default function GreedyBabyPhaserPage() {
   }, []);
 
   return (
-    <div className={styles.root}>
-      <GreedyBabyHud
-        controller={controller}
-        splash={splash || !controller}
-        loadProgress={loadProgress}
-        canvasHostRef={hostRef}
-      />
+    <div className={`game-viewport ${styles.viewport}`}>
+      <div ref={viewportRef} className="game-viewport-content">
+        <div
+          className={styles.root}
+          style={{
+            width: GAME_WIDTH,
+            height: stageHeight,
+            transform: `scale(${scale})`,
+          }}
+        >
+          <GreedyBabyHud
+            controller={controller}
+            splash={splash || !controller}
+            loadProgress={loadProgress}
+            canvasHostRef={hostRef}
+          />
+        </div>
+      </div>
     </div>
   );
 }

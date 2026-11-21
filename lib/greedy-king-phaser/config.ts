@@ -74,6 +74,44 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
 ];
 
+/** Wheel effect art (DOM layer — app/greedylion/WheelFx.tsx). */
+export const FX_ASSETS = {
+  betBox: '/greedy-lion/bet-box.webp',
+  coin: '/greedy-lion/bet-coin.webp',
+  hand: '/greedy-lion/spin-hand.webp',
+  /** Center of wing-spark.webp as Phaser showed it (scripts/bake-wing-spark-glow.mjs). */
+  spark: '/greedy-lion/wing-spark-glow.webp',
+} as const;
+
+/**
+ * Images on the first screen after the splash — preloaded behind it so the
+ * game appears fully drawn. Deliberately excludes decorative/late art
+ * (clouds, win spark, result sheet, popups) to keep the cold start small.
+ */
+export const CRITICAL_IMAGES: readonly string[] = [
+  FX_ASSETS.betBox,
+  FX_ASSETS.coin,
+  FX_ASSETS.hand,
+  ...FOOD_ITEMS.map((f) => f.image),
+  '/greedy-lion/main-stand.webp',
+  '/greedy-lion/bottom-panel.webp',
+  '/greedy-lion/footer.webp',
+  '/greedy-lion/reselat.webp',
+  '/greedy-lion/slected-coin.webp',
+  '/greedy-lion/unselect-coin.webp',
+  '/greedy-lion/back-butten.webp',
+  '/greedy-lion/help_button.webp',
+  '/greedy-lion/music_button.webp',
+  '/greedy-lion/myhistory.webp',
+  '/greedy-lion/today-revenue-rank.webp',
+  '/greedy-lion/auto-play.webp',
+  '/greedy-lion/lion.webp',
+  '/greedy-lion/salad.webp',
+  '/greedy-lion/pizza.webp',
+  '/greedy-lion/g-coin.webp?v=2',
+  '/greedy-lion/avatar-frame.webp',
+];
+
 export const CHIPS = [1000, 10000, 500000, 1000000, 10000000] as const;
 
 export const SPIN_ORDER = FOOD_ITEMS.map((f) => f.id);
@@ -86,7 +124,7 @@ export const STAND_ASPECT_W = 1095;
 export const STAND_ASPECT_H = 1008;
 
 /**
- * Phaser canvas host on the stand (may extend above stand top).
+ * Wheel FX host on the stand (may extend above stand top).
  * Aspect must match this host or FIT letterboxing desyncs labels.
  */
 export const STAND_CANVAS_TOP_PCT = -10;
@@ -106,7 +144,7 @@ export const WHEEL = {
   ),
   /** Push bet boxes slightly outside the gear rim. */
   orbitRadius: 105,
-  /** bet-box pedestal size in Phaser. */
+  /** bet-box pedestal size (game px). */
   slotSize: 54,
   hubRadius: 40,
 } as const;

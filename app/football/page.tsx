@@ -1,16 +1,25 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { FootballController } from '@/lib/football-phaser/FootballController';
 import { FootballHud } from './FootballHud';
 import styles from './football-phaser.module.css';
+
+const MIN_FRAME_WIDTH = 390;
+const MIN_FRAME_HEIGHT = 620;
 
 /**
  * Hybrid shell: Phaser canvas (wheel) + HTML overlay (bets / chrome).
  * Ported from SK Live football-phaser.
  */
 export default function FootballPhaserPage() {
+  const { viewportRef, scale, width, height } = useGameViewport(
+    MIN_FRAME_WIDTH,
+    MIN_FRAME_HEIGHT,
+    1,
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const [controller, setController] = useState<FootballController | null>(
     null,
@@ -84,13 +93,24 @@ export default function FootballPhaserPage() {
   }, []);
 
   return (
-    <div className={styles.root}>
-      <FootballHud
-        controller={controller}
-        splash={splash || !controller}
-        loadProgress={loadProgress}
-        canvasHostRef={hostRef}
-      />
+    <div className={`game-viewport ${styles.root}`}>
+      <div ref={viewportRef} className="game-viewport-content">
+        <div
+          className={styles.frame}
+          style={{
+            '--available-frame-w': `${width ? width / scale : MIN_FRAME_WIDTH}px`,
+            '--frame-h': `${height ? height / scale : MIN_FRAME_HEIGHT}px`,
+            transform: `scale(${scale})`,
+          } as CSSProperties}
+        >
+          <FootballHud
+            controller={controller}
+            splash={splash || !controller}
+            loadProgress={loadProgress}
+            canvasHostRef={hostRef}
+          />
+        </div>
+      </div>
     </div>
   );
 }

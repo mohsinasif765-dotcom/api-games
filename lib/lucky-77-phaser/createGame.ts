@@ -22,10 +22,8 @@ export function createLucky77Game({
     transparent: true,
     scene: [BootScene, MainScene],
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+      // The HUD sizes the canvas to the wheel opening and scales the stage.
+      mode: Phaser.Scale.NONE,
     },
     audio: {
       disableWebAudio: false,

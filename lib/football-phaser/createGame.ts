@@ -22,10 +22,8 @@ export function createFootballGame({
     transparent: true,
     scene: [BootScene, MainScene],
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+      // The square canvas host is sized and scaled together with the HUD.
+      mode: Phaser.Scale.NONE,
     },
     audio: {
       disableWebAudio: false,

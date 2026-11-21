@@ -1,11 +1,12 @@
-.root {
-  position: relative;
-  width: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
+.viewport {
   /* Outer letterbox — stage art lives on .hud */
   background-color: #070312;
+}
+
+.root {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
   font-family: 'Outfit', system-ui, sans-serif;
   touch-action: manipulation;
   user-select: none;
@@ -18,8 +19,6 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  max-width: 28rem;
-  margin: 0 auto;
   pointer-events: none;
   /* Full stage: spotlights → floor (reference match) */
   background-color: #0a0418;
@@ -34,7 +33,7 @@
 }
 
 .splash {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 200;
   display: flex;
@@ -44,14 +43,10 @@
   overflow: hidden;
 }
 
-/* Same phone column as .hud — portrait splash fills the stage */
 .splashInner {
   position: relative;
   width: 100%;
-  max-width: 28rem;
   height: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
   overflow: hidden;
   background: #12081f;
 }
@@ -84,7 +79,7 @@
 }
 
 .splashBarTrack {
-  width: min(14rem, 62vw);
+  width: min(14rem, 100%);
   height: 0.75rem;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.45);
@@ -114,9 +109,7 @@
   grid-template-columns: 1fr 1fr;
   align-items: start;
   gap: 0.4rem;
-  padding: 0.5rem 0.65rem 0.15rem;
-  /* Nudge icons lower from the top edge */
-  padding-top: max(1.85rem, calc(env(safe-area-inset-top) + 1.25rem));
+  padding: 1.85rem 0.65rem 0.15rem;
 }
 
 .topLeft {
@@ -227,7 +220,7 @@
 .wheelStage {
   position: relative;
   /* Circular fram.png (1254²) — pointer sits inside the square */
-  width: min(86vw, 22rem);
+  width: min(86%, 22rem);
   aspect-ratio: 1;
   margin: 0 auto;
   flex-shrink: 0;
@@ -303,7 +296,7 @@
   border: none;
   color: #ff1a1a;
   font-weight: 900;
-  font-size: clamp(1.35rem, 7.2vw, 2rem);
+  font-size: 1.75rem;
   line-height: 1;
   pointer-events: none;
   text-shadow:
@@ -441,12 +434,11 @@
 .footer {
   position: relative;
   width: min(100%, 28rem);
-  margin: 0.35rem 0 0;
+  margin: 0.35rem 0 0.2rem;
   /* trimmed result.png */
   aspect-ratio: 1020 / 278;
   flex-shrink: 0;
   overflow: hidden;
-  margin-bottom: max(0.2rem, env(safe-area-inset-bottom));
   z-index: 2;
 }
 
@@ -566,7 +558,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  font-size: clamp(0.62rem, 2.5vw, 0.78rem);
+  font-size: 0.62rem;
   font-weight: 900;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
@@ -581,8 +573,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  width: 2.45rem;
+  flex: 0 1 2.45rem;
+  min-width: 0;
   height: auto;
   border: none;
   background: transparent;
@@ -597,8 +589,8 @@
 }
 
 .chipBtn img {
-  width: 2.45rem;
-  height: 2.45rem;
+  width: min(100%, 2.45rem);
+  aspect-ratio: 1;
   object-fit: contain;
   display: block;
 }
@@ -610,7 +602,7 @@
 }
 
 .toast {
-  position: fixed;
+  position: absolute;
   left: 50%;
   bottom: 22%;
   transform: translateX(-50%);
@@ -625,9 +617,9 @@
 }
 
 .banner {
-  position: fixed;
+  position: absolute;
   left: 50%;
-  top: max(12%, env(safe-area-inset-top) + 3.5rem);
+  top: 12%;
   transform: translateX(-50%);
   z-index: 70;
   padding: 0.55rem 1.2rem;
@@ -652,14 +644,13 @@
 }
 
 .resultModal {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 90;
   display: grid;
   place-items: center;
-  padding: 0 0.75rem;
   /* Keep card above footer like reference */
-  padding-bottom: max(7rem, env(safe-area-inset-bottom));
+  padding: 0 0.75rem 7rem;
   background: rgba(8, 0, 20, 0.55);
   animation: popIn 0.3s ease-out;
   pointer-events: none;
@@ -667,7 +658,7 @@
 
 .resultCard {
   position: relative;
-  width: min(90vw, 21rem);
+  width: min(100%, 21rem);
   aspect-ratio: 737 / 617;
   filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
 }
@@ -700,7 +691,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+  font-size: 0.88rem;
   font-weight: 900;
   color: #3b1a5c;
   letter-spacing: 0.02em;
@@ -713,7 +704,7 @@
   right: 8%;
   top: 11.2%;
   text-align: center;
-  font-size: clamp(0.55rem, 2.4vw, 0.68rem);
+  font-size: 0.59rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
@@ -781,7 +772,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: clamp(0.5rem, 2.2vw, 0.62rem);
+  font-size: 0.54rem;
   font-weight: 800;
   color: #2a1038;
   line-height: 1;
@@ -791,7 +782,7 @@
 }
 
 .podiumCol1 .podiumName {
-  font-size: clamp(0.52rem, 2.3vw, 0.66rem);
+  font-size: 0.56rem;
 }
 
 .statBet,
@@ -802,7 +793,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.48rem, 2.1vw, 0.58rem);
+  font-size: 0.51rem;
   font-weight: 800;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
@@ -843,7 +834,7 @@
   height: 10%;
   display: flex;
   align-items: center;
-  font-size: clamp(0.7rem, 3vw, 0.88rem);
+  font-size: 0.73rem;
   font-weight: 800;
   color: #fff8e7;
   white-space: nowrap;
@@ -860,7 +851,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.48rem, 2.1vw, 0.58rem);
+  font-size: 0.51rem;
   font-weight: 800;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);

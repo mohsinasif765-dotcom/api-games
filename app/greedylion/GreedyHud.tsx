@@ -1,6 +1,6 @@
 'use client';
 
-import { RefObject, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   CHIPS,
   FOOD_ITEMS,
@@ -26,20 +26,20 @@ import type {
 import { MyHistoryPopup } from './MyHistoryPopup';
 import { RevenueRankPopup } from './RevenueRankPopup';
 import { RulesPopup } from './RulesPopup';
+import { WheelFx } from './WheelFx';
+import { SPLASH_PLACEHOLDER } from './splashPlaceholder';
 import styles from './greedy-phaser.module.css';
 
 type Props = {
   controller: GreedyKingController | null;
   splash: boolean;
   loadProgress: number;
-  canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
 export function GreedyHud({
   controller,
   splash,
   loadProgress,
-  canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
   const [profit, setProfit] = useState(0);
@@ -230,13 +230,23 @@ export function GreedyHud({
     <>
       {splash && (
         <div className={styles.splash}>
-          <div className={styles.splashInner}>
+          <div
+            className={styles.splashInner}
+            // Inline blurred preview: splash art on the very first paint,
+            // replaced by the full image as soon as it arrives.
+            style={{
+              backgroundImage: `url(${SPLASH_PLACEHOLDER})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/greedy-lion/splash.jpg"
+              src="/greedy-lion/splash.webp"
               alt="Greedy Lion"
               className={styles.splashBg}
               draggable={false}
+              fetchPriority="high"
             />
             <div className={styles.splashFooter}>
               <div className={styles.splashBarTrack}>
@@ -253,6 +263,8 @@ export function GreedyHud({
         </div>
       )}
 
+      {/* Decorative clouds load after the splash — off the cold-start path. */}
+      {!splash && (
       <div className={styles.sky} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -276,6 +288,7 @@ export function GreedyHud({
           draggable={false}
         />
       </div>
+      )}
 
       <div className={styles.hud}>
         <div className={styles.topBar}>
@@ -318,7 +331,9 @@ export function GreedyHud({
 
         <div className={styles.bottomBlock}>
         <div className={styles.wheelStage}>
-          <div ref={canvasHostRef} className={styles.canvasHost} />
+          <div className={styles.canvasHost}>
+            <WheelFx controller={controller} />
+          </div>
           <div className={styles.hubTimer}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -588,8 +603,8 @@ export function GreedyHud({
               key={resultIsWin ? 'result-lion-win' : 'result-lion-loss'}
               src={
                 resultIsWin
-                  ? '/greedy-lion/lain.webp?v=3'
-                  : '/greedy-lion/win-popup-loss.png?v=3'
+                  ? '/greedy-lion/lain.webp?v=4'
+                  : '/greedy-lion/win-popup-loss.webp?v=4'
               }
               alt=""
               className={`${styles.resultLion} ${

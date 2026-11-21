@@ -1,12 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { Lucky77Controller } from '@/lib/lucky-77-phaser/Lucky77Controller';
 import { Lucky77Hud } from './Lucky77Hud';
 import styles from './lucky-77.module.css';
 
+const STAGE_WIDTH = 390;
+const MIN_STAGE_HEIGHT = 710;
+
 export default function Lucky77Page() {
+  const { viewportRef, height, scale } = useGameViewport(
+    STAGE_WIDTH,
+    MIN_STAGE_HEIGHT,
+    424 / STAGE_WIDTH,
+  );
+  const stageHeight = Math.max(MIN_STAGE_HEIGHT, height / scale);
   const hostRef = useRef<HTMLDivElement>(null);
   const [controller, setController] = useState<Lucky77Controller | null>(null);
   const [splash, setSplash] = useState(true);
@@ -64,13 +74,20 @@ export default function Lucky77Page() {
   }, []);
 
   return (
-    <div className={styles.root}>
-      <Lucky77Hud
-        controller={controller}
-        splash={splash || !controller}
-        loadProgress={loadProgress}
-        canvasHostRef={hostRef}
-      />
+    <div className={`game-viewport ${styles.viewport}`}>
+      <div className="game-viewport-content" ref={viewportRef}>
+        <div
+          className={styles.root}
+          style={{ width: STAGE_WIDTH, height: stageHeight, transform: `scale(${scale})` }}
+        >
+          <Lucky77Hud
+            controller={controller}
+            splash={splash || !controller}
+            loadProgress={loadProgress}
+            canvasHostRef={hostRef}
+          />
+        </div>
+      </div>
     </div>
   );
 }

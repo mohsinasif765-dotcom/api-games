@@ -22,12 +22,8 @@ export function createEuroRouletteGame({
     transparent: true,
     scene: [BootScene, MainScene],
     scale: {
-      // Fit the wheel stage box — no crop jump
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
-      autoRound: true,
+      // The square canvas host is sized and scaled together with the HUD.
+      mode: Phaser.Scale.NONE,
     },
     render: {
       antialias: true,
@@ -43,26 +39,5 @@ export function createEuroRouletteGame({
   });
 
   game.registry.set('controller', controller);
-
-  // Keep FIT square when HUD/grid reflows (otherwise canvas CSS can look “tedha”).
-  const refresh = () => {
-    try {
-      game.scale.refresh();
-    } catch {
-      /* destroyed */
-    }
-  };
-  const ro =
-    typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => refresh())
-      : null;
-  ro?.observe(parent);
-  window.addEventListener('resize', refresh);
-  game.events.once('destroy', () => {
-    ro?.disconnect();
-    window.removeEventListener('resize', refresh);
-  });
-  requestAnimationFrame(refresh);
-
   return game;
 }

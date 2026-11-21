@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { getSupabase } from './supabaseLazy';
 
 /**
  * Apply the mobile WebView access token without using (or rotating) the
@@ -12,6 +12,7 @@ export async function applyWebViewAccessToken(
   const token = accessToken?.trim();
   if (!token) return null;
 
+  const supabase = await getSupabase();
   const { data, error } = await supabase.auth.setSession({
     access_token: token,
     // Placeholder only — never pass the mobile refresh token here.

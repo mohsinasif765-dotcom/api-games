@@ -8,8 +8,8 @@
  *   node scripts/optimize-greedy-lion-images.mjs          # write files
  *   node scripts/optimize-greedy-lion-images.mjs --dry    # report only
  *
- * Source of truth is git: re-running is safe (never upscales, and only
- * overwrites when the result is smaller). Restore originals with
+ * Source of truth is git: re-running is safe (skips images already at their
+ * target width, never upscales, only overwrites when the result is smaller). Restore originals with
  *   git checkout -- public/greedy-lion
  */
 import fs from 'node:fs/promises';
@@ -50,6 +50,9 @@ const TARGETS = {
   'grapes.webp': 384,
   // Wheel spark — shared by several Phaser games, keep headroom
   'wing-spark.webp': 512,
+  // Result popup lion (win / loss): 5.1rem ≈ 82px
+  'lain.webp': 300,
+  'win-popup-loss.webp': 300,
 };
 
 const kb = (n) => `${(n / 1024).toFixed(0)}K`;
@@ -61,6 +64,13 @@ for (const [file, maxWidth] of Object.entries(TARGETS)) {
   const fp = path.join(DIR, file);
   const input = await fs.readFile(fp);
   const meta = await sharp(input).metadata();
+  // Already at (or below) target: re-encoding would only add generation loss.
+  if ((meta.width ?? 0) <= maxWidth) {
+    before += input.length;
+    after += input.length;
+    console.log(`· ${file.padEnd(26)} ${meta.width}x${meta.height} already sized — skipped`);
+    continue;
+  }
 
   const out = await sharp(input)
     .resize({

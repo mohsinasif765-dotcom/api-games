@@ -1,5 +1,5 @@
 import { openWallet } from './flutter-bridge';
-import { supabase } from './supabase';
+import { getSupabase } from './supabaseLazy';
 import { getStoredApiKey, placeGameBet } from './game-api-client';
 
 /**
@@ -43,6 +43,7 @@ export async function placeBetUnified(params: {
     return { error: null, balance: settled ? res.data.balance : undefined };
   }
 
+  const supabase = await getSupabase();
   const { error } = await supabase.rpc('place_game_bet', {
     p_round_id: params.roundId,
     p_option: params.option,

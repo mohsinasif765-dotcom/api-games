@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabaseLazy';
 import { fetchMe, getStoredApiKey } from '@/lib/game-api-client';
 
 /** Fetch latest coins for a user (gateway API key preferred). */
@@ -8,6 +8,7 @@ export async function fetchUserCoins(userId: string): Promise<number | null> {
     if (me.ok) return me.data.player.coins;
   }
 
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from('users')
     .select('coins')

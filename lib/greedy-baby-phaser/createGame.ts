@@ -22,10 +22,8 @@ export function createGreedyBabyGame({
     transparent: true,
     scene: [BootScene, MainScene],
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+      // The stage scales the canvas and the HTML bet targets together.
+      mode: Phaser.Scale.NONE,
     },
     audio: {
       disableWebAudio: false,

@@ -1,15 +1,11 @@
-.root {
-  /* outer letterbox — stage art lives only inside the phone frame */
-  --frame-w: min(100vw, 26.5rem);
-  --frame-h: 100dvh;
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
+.viewport {
   background-color: #070312;
+}
+
+.root {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
   font-family: 'Outfit', system-ui, sans-serif;
   touch-action: manipulation;
   user-select: none;
@@ -17,14 +13,11 @@
 }
 
 .hud {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  width: var(--frame-w);
-  height: var(--frame-h);
-  max-width: none;
-  margin: 0;
   overflow: visible;
   pointer-events: none;
   /* full stage: curtains → magenta rim → blue floor (reference match) */
@@ -40,7 +33,7 @@
 }
 
 .splash {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 200;
   display: block;
@@ -64,7 +57,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  bottom: 1.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -73,7 +66,7 @@
 }
 
 .splashBarTrack {
-  width: min(16rem, 70vw);
+  width: min(16rem, 100%);
   height: 0.85rem;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.4);
@@ -105,7 +98,7 @@
   gap: 0.25rem;
   min-height: 3.1rem;
   padding: 0 0.65rem;
-  padding-top: max(0.7rem, calc(env(safe-area-inset-top) + 0.35rem));
+  padding-top: 0.7rem;
 }
 
 .topLeft {
@@ -203,7 +196,7 @@
   --hole-cy: 45%;
   --hole-size: 70%;
   position: relative;
-  width: min(88vw, 22.5rem);
+  width: min(88%, 22.5rem);
   aspect-ratio: 1;
   margin: 0 auto;
   margin-top: 5.5rem;
@@ -298,7 +291,7 @@
 /* Reference right column — small tight icons on gold wing / blue pillar */
 .rightIconStack {
   position: absolute;
-  right: -1.35rem;
+  right: -1rem;
   top: 17%;
   z-index: 8;
   display: flex;
@@ -597,7 +590,7 @@
   justify-content: space-between;
   gap: 0.45rem;
   margin-top: 0.2rem;
-  padding: 0.2rem 0.45rem max(0.55rem, env(safe-area-inset-bottom));
+  padding: 0.2rem 0.45rem 0.55rem;
 }
 
 /* Reference profile card — left of footer */
@@ -728,21 +721,15 @@
   gap: 0.28rem;
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
   padding: 0.15rem 0;
-}
-
-.chipRow::-webkit-scrollbar {
-  display: none;
 }
 
 .chipBtn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex-shrink: 0;
-  width: 2.35rem;
+  flex: 0 1 2.35rem;
+  min-width: 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -752,8 +739,8 @@
 }
 
 .chipBtn img {
-  width: 2.15rem;
-  height: 2.15rem;
+  width: min(100%, 2.15rem);
+  aspect-ratio: 1;
   object-fit: contain;
 }
 
@@ -764,7 +751,7 @@
 }
 
 .toast {
-  position: fixed;
+  position: absolute;
   left: 50%;
   bottom: 22%;
   transform: translateX(-50%);
@@ -779,9 +766,9 @@
 }
 
 .banner {
-  position: fixed;
+  position: absolute;
   left: 50%;
-  top: max(12%, env(safe-area-inset-top) + 3.5rem);
+  top: 12%;
   transform: translateX(-50%);
   z-index: 70;
   padding: 0.55rem 1.2rem;
@@ -807,7 +794,7 @@
 
 /* Good Luck winners card — matches WhatsApp reference */
 .resultModal {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 90;
   display: grid;
@@ -820,7 +807,7 @@
 
 .resultCard {
   position: relative;
-  width: min(92vw, 22rem);
+  width: min(100%, 22rem);
   padding: 0.55rem 0.65rem 0.7rem;
   border-radius: 1.15rem;
   border: 3px solid #f0c93a;

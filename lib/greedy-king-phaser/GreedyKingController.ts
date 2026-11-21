@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabaseLazy';
 import { placeBetUnified } from '@/lib/placeBet';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import {
@@ -110,7 +111,7 @@ function phaseKey(snap: GameLiveSnapshot) {
 }
 
 /**
- * Non-React controller for Greedy King Phaser + HTML HUD.
+ * Non-React controller for the Greedy King (Greedy Lion) HTML HUD + wheel FX.
  */
 export class GreedyKingController {
   private listeners = new Map<string, Set<Listener>>();
@@ -153,8 +154,10 @@ export class GreedyKingController {
   private roundPollTimer: ReturnType<typeof setTimeout> | null = null;
   private roundPollInFlight = false;
   private loadGraceTimer: ReturnType<typeof setTimeout> | null = null;
-  private balanceChannel: ReturnType<typeof supabase.channel> | null = null;
-  private roundsChannel: ReturnType<typeof supabase.channel> | null = null;
+  private balanceChannel: RealtimeChannel | null = null;
+  private roundsChannel: RealtimeChannel | null = null;
+  /** Loaded lazily — only the legacy (non API-key) path needs Supabase. */
+  private sb: SupabaseClient | null = null;
   private socketCleanup: (() => void) | null = null;
 
   on<K extends keyof ControllerEvents>(
@@ -202,6 +205,7 @@ export class GreedyKingController {
     } else {
       let user = await tokenUser;
       if (!user) {
+        const supabase = await getSupabase();
         const {
           data: { user: existing },
         } = await supabase.auth.getUser();
@@ -239,6 +243,7 @@ export class GreedyKingController {
         this.applyLiveRound(round, true);
       }
     } else {
+      const supabase = await getSupabase();
       const { data: configData } = await supabase
         .from('game_configs')
         .select('id')
@@ -281,7 +286,7 @@ export class GreedyKingController {
       }
     }
 
-    if (!usingApiKeyAuth()) this.subscribeBalance();
+    if (!usingApiKeyAuth()) void this.subscribeBalance();
     this.connectSocket();
     this.startRoundFallback();
     this.startCountdownLoop();
@@ -322,11 +327,11 @@ export class GreedyKingController {
     this.socketCleanup?.();
     this.socketCleanup = null;
     if (this.balanceChannel) {
-      void supabase.removeChannel(this.balanceChannel);
+      void this.sb?.removeChannel(this.balanceChannel);
       this.balanceChannel = null;
     }
     if (this.roundsChannel) {
-      void supabase.removeChannel(this.roundsChannel);
+      void this.sb?.removeChannel(this.roundsChannel);
       this.roundsChannel = null;
     }
     this.listeners.clear();
@@ -520,6 +525,8 @@ export class GreedyKingController {
     if (!this.userId || !this.gameId) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const supabase = await getSupabase();
+    if (this.destroyed) return;
     const { data } = await supabase
       .from('game_bets')
       .select('amount, payout_amount, is_win, game_rounds!inner(game_id)')
@@ -575,8 +582,11 @@ export class GreedyKingController {
     }, 200);
   }
 
-  private subscribeBalance() {
+  private async subscribeBalance() {
     if (!this.userId) return;
+    const supabase = await getSupabase();
+    if (this.destroyed) return;
+    this.sb = supabase;
     this.balanceChannel = supabase
       .channel(`greedy_king_phaser_user_${this.userId}`)
       .on(
@@ -668,25 +678,29 @@ export class GreedyKingController {
     // API-key webviews can't rely on Supabase realtime RLS
     if (usingApiKeyAuth()) return;
 
-    this.roundsChannel = supabase
-      .channel(`greedy_king_phaser_rounds_${this.gameId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_rounds',
-          filter: `game_id=eq.${this.gameId}`,
-        },
-        (payload) => {
-          if (this.socketConnected) return;
-          const row = (payload.new || payload.old) as GameRound | undefined;
-          if (!row?.id) return;
-          if (payload.eventType === 'DELETE') return;
-          this.applyLiveRound(row as GameRound, true);
-        },
-      )
-      .subscribe();
+    void getSupabase().then((supabase) => {
+      if (this.destroyed) return;
+      this.sb = supabase;
+      this.roundsChannel = supabase
+        .channel(`greedy_king_phaser_rounds_${this.gameId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'game_rounds',
+            filter: `game_id=eq.${this.gameId}`,
+          },
+          (payload) => {
+            if (this.socketConnected) return;
+            const row = (payload.new || payload.old) as GameRound | undefined;
+            if (!row?.id) return;
+            if (payload.eventType === 'DELETE') return;
+            this.applyLiveRound(row as GameRound, true);
+          },
+        )
+        .subscribe();
+    });
   }
 
   /**
@@ -747,6 +761,7 @@ export class GreedyKingController {
       return;
     }
 
+    const supabase = await getSupabase();
     const { data } = await supabase
       .from('game_rounds')
       .select(
@@ -999,6 +1014,7 @@ export class GreedyKingController {
     }
 
     if (this.userId && this.gameId) {
+      const supabase = await getSupabase();
       const { data } = await supabase
         .from('game_bets')
         .select(
