@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { GameSplash } from '@/components/GameSplash';
 import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { Lucky777Controller } from '@/lib/lucky-777-phaser/Lucky777Controller';
@@ -77,6 +78,14 @@ export default function Lucky777Page() {
 
   return (
     <div data-loading={loading} className={`game-viewport ${styles.viewport}`}>
+      {loading && (
+        <GameSplash
+          name="Lucky 77"
+          src="/lucky77/splace-screen.jpeg?v=2"
+          background="#12081f"
+          progress={loadProgress}
+        />
+      )}
       <div className="game-viewport-content" ref={viewportRef}>
         <div
           className={styles.root}
@@ -84,8 +93,6 @@ export default function Lucky777Page() {
         >
           <Lucky777Hud
             controller={controller}
-            splash={loading}
-            loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />
         </div>

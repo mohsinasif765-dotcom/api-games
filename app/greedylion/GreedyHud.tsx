@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
 import {
   CHIPS,
   FOOD_ITEMS,
@@ -27,26 +29,20 @@ import { MyHistoryPopup } from './MyHistoryPopup';
 import { RevenueRankPopup } from './RevenueRankPopup';
 import { RulesPopup } from './RulesPopup';
 import { WheelFx } from './WheelFx';
-import { SPLASH_PLACEHOLDER } from './splashPlaceholder';
 import styles from './greedy-phaser.module.css';
 
 type Props = {
   controller: GreedyKingController | null;
-  splash: boolean;
-  loadProgress: number;
 };
+
+type PlayerProfile = Pick<ControllerEvents['ready'], 'userId' | 'username' | 'avatarUrl'>;
 
 export function GreedyHud({
   controller,
-  splash,
-  loadProgress,
 }: Props) {
   const [balance, setBalance] = useState(0);
   const [profit, setProfit] = useState(0);
-  const [playerName, setPlayerName] = useState('Player');
-  const [avatarUrl, setAvatarUrl] = useState(
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=player',
-  );
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [round, setRound] = useState<GameRound | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -73,13 +69,12 @@ export function GreedyHud({
 
   useEffect(() => {
     if (!controller) return;
+    const updateProfile = ({ userId, username, avatarUrl }: PlayerProfile) => {
+      setProfile({ userId, username, avatarUrl });
+    };
+    updateProfile(controller);
     setBalance(controller.balance);
     setProfit(controller.todayProfit);
-    setPlayerName(controller.username?.trim() || 'Player');
-    setAvatarUrl(
-      controller.avatarUrl?.trim() ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(controller.username || controller.userId || 'player')}`,
-    );
     setSelectedChip(controller.selectedChip);
     setMuted(controller.isMuted);
     setHistory(controller.history);
@@ -149,18 +144,23 @@ export function GreedyHud({
         setProfit(payload.todayProfit);
         setHistory(payload.history);
         setRound(payload.round);
-        setPlayerName(payload.username?.trim() || 'Player');
-        setAvatarUrl(
-          payload.avatarUrl?.trim() ||
-            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.username || payload.userId || 'player')}`,
-        );
-        void controller.loadRevenueRank().then((rows) => {
-          setTopRank(rows[0] ?? null);
-        });
+        updateProfile(payload);
       }),
     ];
     return () => offs.forEach((off) => off());
   }, [controller]);
+
+  const playerId = profile?.userId;
+  useEffect(() => {
+    if (!controller || !playerId) return;
+    let cancelled = false;
+    void controller.loadRevenueRank().then((rows) => {
+      if (!cancelled) setTopRank(rows[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [controller, playerId]);
 
   useEffect(() => {
     if (!result) return;
@@ -220,49 +220,15 @@ export function GreedyHud({
       .finally(() => setRankLoading(false));
   };
 
-  const topRankAvatar =
-    topRank?.avatarUrl?.trim() ||
-    (topRank
-      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(topRank.username || topRank.playerId)}`
-      : '');
+  const playerName = gamePlayerProfile(profile?.username, profile?.avatarUrl, playerId).name;
+  const topRankName = gamePlayerProfile(
+    topRank?.username,
+    topRank?.avatarUrl,
+    topRank?.playerId,
+  ).name;
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          <div
-            className={styles.splashInner}
-            // Inline blurred preview: splash art on the very first paint,
-            // replaced by the full image as soon as it arrives.
-            style={{
-              backgroundImage: `url(${SPLASH_PLACEHOLDER})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/greedy-lion/splash.webp"
-              alt="Greedy Lion"
-              className={styles.splashBg}
-              draggable={false}
-              fetchPriority="high"
-            />
-            <div className={styles.splashFooter}>
-              <div className={styles.splashBarTrack}>
-                <div
-                  className={styles.splashBarFill}
-                  style={{ width: `${Math.max(loadProgress, 4)}%` }}
-                />
-              </div>
-              <div className={styles.splashPct}>
-                LOADING… {loadProgress}%
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           <div className={styles.iconCol}>
@@ -344,16 +310,15 @@ export function GreedyHud({
           >
             {topRank ? (
               <span className={styles.revenueRankPreview}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={topRankAvatar}
-                  alt=""
+                <GamePlayerAvatar
+                  src={topRank.avatarUrl}
+                  playerId={topRank.playerId}
                   className={styles.revenueRankAvatar}
                   draggable={false}
                 />
                 <span className={styles.revenueRankMeta}>
-                  <span className={styles.revenueRankName}>
-                    {topRank.username}
+                  <span className={styles.revenueRankName} title={topRankName}>
+                    {topRankName}
                   </span>
                   <span className={styles.revenueRankAmount}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -472,10 +437,9 @@ export function GreedyHud({
           <div className={styles.footer}>
             <div className={styles.footerProfile}>
               <div className={styles.footerAvatarWrap}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatarUrl}
-                  alt=""
+                <GamePlayerAvatar
+                  src={profile?.avatarUrl}
+                  playerId={profile?.userId}
                   className={styles.footerAvatar}
                   draggable={false}
                 />
@@ -488,7 +452,7 @@ export function GreedyHud({
                 />
               </div>
               <div className={styles.footerProfileMeta}>
-                <span className={styles.footerName}>{playerName}</span>
+                <span className={styles.footerName} title={playerName}>{playerName}</span>
                 <div className={styles.footerPill}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -652,9 +616,11 @@ export function GreedyHud({
                     if (!slot) {
                       return <div key={rank} className={styles.resultVictor} />;
                     }
-                    const avatar =
-                      slot.avatarUrl?.trim() ||
-                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(slot.username || slot.playerId)}`;
+                    const name = gamePlayerProfile(
+                      slot.username,
+                      slot.avatarUrl,
+                      slot.playerId,
+                    ).name;
                     return (
                       <div
                         key={slot.playerId}
@@ -667,14 +633,17 @@ export function GreedyHud({
                         }`}
                       >
                         <div className={styles.resultVictorAvatar}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={avatar} alt="" draggable={false} />
+                          <GamePlayerAvatar
+                            src={slot.avatarUrl}
+                            playerId={slot.playerId}
+                            draggable={false}
+                          />
                           <span className={styles.resultVictorCrown}>
                             {rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉'}
                           </span>
                         </div>
-                        <div className={styles.resultVictorName}>
-                          {slot.username}
+                        <div className={styles.resultVictorName} title={name}>
+                          {name}
                         </div>
                         <div className={styles.resultVictorAmt}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}

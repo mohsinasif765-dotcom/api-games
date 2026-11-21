@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const tenantSlug = (body.tenant_slug || 'demo').trim();
     const externalId =
       body.external_id?.trim() || `player_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const username = body.username?.trim() || externalId;
+    const username = body.username?.trim() || null;
     const coins = Math.max(0, Math.floor(Number(body.coins ?? 100000)));
     const scopes = body.scopes?.length ? body.scopes : ['game:play'];
 
@@ -46,14 +46,14 @@ export async function POST(req: Request) {
 
     const playerRes = await query<{ id: string }>(
       `INSERT INTO players (tenant_id, external_id, username, avatar_url, coins)
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1, $2, COALESCE($3::text, $2), $4, $5)
        ON CONFLICT (tenant_id, external_id)
        DO UPDATE SET
-         username = EXCLUDED.username,
+         username = COALESCE($3::text, NULLIF(BTRIM(players.username), ''), EXCLUDED.username),
          avatar_url = COALESCE(EXCLUDED.avatar_url, players.avatar_url),
          coins = GREATEST(players.coins, EXCLUDED.coins)
        RETURNING id`,
-      [tenant.id, externalId, username, body.avatar_url ?? null, coins],
+      [tenant.id, externalId, username, body.avatar_url?.trim() || null, coins],
     );
     const playerId = playerRes.rows[0].id;
 

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
 import { placeBetUnified } from '@/lib/placeBet';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import {
@@ -48,6 +49,7 @@ type Listener<T = unknown> = (payload: T) => void;
 export type ControllerEvents = {
   ready: {
     userId: string | null;
+    playerProfile: ReturnType<typeof gamePlayerProfile> | null;
     gameId: string | null;
     balance: number;
     history: string[];
@@ -94,6 +96,7 @@ export class EuroRouletteController {
   private listeners = new Map<string, Set<Listener>>();
 
   userId: string | null = null;
+  playerProfile: ReturnType<typeof gamePlayerProfile> | null = null;
   gameId: string | null = null;
   balance = 0;
   todayProfit = 0;
@@ -161,6 +164,12 @@ export class EuroRouletteController {
     const session = await bootstrapPlayerSession(GAME_SLUG);
     if (session.apiKey && session.playerId) {
       this.userId = session.playerId;
+      this.playerProfile = gamePlayerProfile(
+        session.username,
+        session.avatarUrl,
+        session.playerId,
+        'You',
+      );
       this.balance = session.balance;
       this.emit('balance', this.balance);
     } else {
@@ -173,7 +182,16 @@ export class EuroRouletteController {
       }
       if (user) {
         this.userId = user.id;
-        await this.refreshBalance();
+        const [{ data: profile }] = await Promise.all([
+          supabase.from('users').select('username, avatar_url').eq('id', user.id).maybeSingle(),
+          this.refreshBalance(),
+        ]);
+        this.playerProfile = gamePlayerProfile(
+          profile?.username,
+          profile?.avatar_url,
+          user.id,
+          'You',
+        );
       }
     }
 
@@ -253,6 +271,7 @@ export class EuroRouletteController {
 
     this.emit('ready', {
       userId: this.userId,
+      playerProfile: this.playerProfile,
       gameId: this.gameId,
       balance: this.balance,
       history: [...this.history],

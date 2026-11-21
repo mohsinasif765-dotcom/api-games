@@ -91,11 +91,20 @@ Body: `{ "uid", "user_id", "sstoken" }` → rotated token
 {
   "tenant_slug": "demo",
   "external_id": "rave_user_1",
+  "username": "Ayesha Khan",
+  "avatar_url": "https://cdn.example.com/avatars/rave_user_1.webp",
   "issue_sstoken": true
 }
 ```
 
 Returns `api_key`, optional `sstoken`, and `launch_query`.
+
+The games receive the saved player profile through `/boot` or `/me`. Send an
+accessible HTTPS image URL in `avatar_url` so the WebView can load it. For
+merchant wallets, `get_user_info` can supply `nickname` and `avatar` (or
+`username` and `avatar_url`). Non-empty callback values take precedence.
+Omitting either profile field keeps its saved value for the same tenant and
+`external_id`.
 
 ### Settle merchant win credits
 

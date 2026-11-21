@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { preconnect } from 'react-dom';
 import { GreedySky } from '@/components/GreedySky';
+import { GameSplash } from '@/components/GameSplash';
 import { useGameViewport } from '@/components/useGameViewport';
 import { GreedyKingController } from '@/lib/greedy-king-phaser/GreedyKingController';
 import { CRITICAL_IMAGES } from '@/lib/greedy-king-phaser/config';
 import { preloadImages } from '@/lib/preloadImages';
 import { GreedyHud } from './GreedyHud';
+import { SPLASH_PLACEHOLDER } from './splashPlaceholder';
 import styles from './greedy-phaser.module.css';
 
 /** Hard cap on the splash: even on a dead network the player gets the UI. */
@@ -124,6 +126,15 @@ export default function GreedyKingPage() {
   return (
     <div data-loading={loading} className={`game-viewport ${styles.viewportBackground}`}>
       {!loading && <GreedySky />}
+      {loading && (
+        <GameSplash
+          name="Greedy Lion"
+          src="/greedy-lion/splash.webp"
+          background="#1a4f6e"
+          progress={loadProgress}
+          placeholder={SPLASH_PLACEHOLDER}
+        />
+      )}
       <div className="game-viewport-content" ref={viewportRef}>
         <div
           className={styles.root}
@@ -131,8 +142,6 @@ export default function GreedyKingPage() {
         >
           <GreedyHud
             controller={controller}
-            splash={loading}
-            loadProgress={loadProgress}
           />
         </div>
       </div>

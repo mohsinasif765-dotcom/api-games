@@ -1,5 +1,4 @@
 .viewport {
-  --game-splash-art: url('/77/splash.webp');
   background: #0a0418 url('/77/background-emage.jpeg?v=4') center / cover no-repeat;
 }
 
@@ -25,63 +24,6 @@
 
 .hud > * {
   pointer-events: auto;
-}
-
-.splash {
-  position: absolute;
-  inset: 0;
-  z-index: 200;
-  display: block;
-  background: #12081f;
-  pointer-events: all;
-  overflow: hidden;
-}
-
-.splashBg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.splashFooter {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 1;
-  padding: 0 1.25rem;
-}
-
-.splashBarTrack {
-  width: min(16rem, 100%);
-  height: 0.85rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  padding: 3px;
-}
-
-.splashBarFill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #f48fb1, #ce93d8);
-  transition: width 0.15s ease-out;
-}
-
-.splashPct {
-  margin-top: 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.92);
 }
 
 .topBar {

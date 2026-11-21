@@ -1,5 +1,8 @@
 'use client';
 
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
+
 import type { RevenueRankRow } from '@/lib/greedy-king-phaser/GreedyKingController';
 import styles from './greedy-phaser.module.css';
 
@@ -49,32 +52,31 @@ export function RevenueRankPopup({ open, loading, rows, onClose }: Props) {
           {!loading && rows.length === 0 && (
             <div className={styles.historyEmpty}>No rankings yet today</div>
           )}
-          {rows.map((row) => (
-            <div key={row.playerId} className={styles.rankItem}>
-              <span className={styles.rankNum}>{row.rank}</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={
-                  row.avatarUrl?.trim() ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(row.username || row.playerId)}`
-                }
-                alt=""
-                className={styles.rankAvatar}
-                draggable={false}
-              />
-              <span className={styles.rankName}>{row.username}</span>
-              <div className={styles.rankRevenue}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/greedy-lion/g-coin.webp?v=2"
-                  alt=""
-                  className={styles.historyGCoin}
+          {rows.map((row) => {
+            const name = gamePlayerProfile(row.username, row.avatarUrl, row.playerId).name;
+            return (
+              <div key={row.playerId} className={styles.rankItem}>
+                <span className={styles.rankNum}>{row.rank}</span>
+                <GamePlayerAvatar
+                  src={row.avatarUrl}
+                  playerId={row.playerId}
+                  className={styles.rankAvatar}
                   draggable={false}
                 />
-                <span>{formatRevenue(row.revenue)}</span>
+                <span className={styles.rankName} title={name}>{name}</span>
+                <div className={styles.rankRevenue}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/greedy-lion/g-coin.webp?v=2"
+                    alt=""
+                    className={styles.historyGCoin}
+                    draggable={false}
+                  />
+                  <span>{formatRevenue(row.revenue)}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

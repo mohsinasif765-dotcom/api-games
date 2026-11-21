@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Fredoka } from 'next/font/google';
+import { GameSplash } from '@/components/GameSplash';
 import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { EuroRouletteController } from '@/lib/euro-roulette-phaser/EuroRouletteController';
@@ -101,12 +102,18 @@ export default function EuroRoulettePage() {
         '--game-scale': scale,
       } as CSSProperties}
     >
+      {loading && (
+        <GameSplash
+          name="Euro Roulette"
+          src="/euro-roulette/splash.webp"
+          background="#0a1628"
+          progress={loadProgress}
+        />
+      )}
       <div ref={viewportRef} className="game-viewport-content">
         <div className={styles.frame} style={{ transform: `scale(${scale})` }}>
           <EuroRouletteHud
             controller={controller}
-            splash={loading}
-            loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />
         </div>

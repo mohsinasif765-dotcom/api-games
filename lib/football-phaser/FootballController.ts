@@ -1,11 +1,16 @@
 import { supabase } from '@/lib/supabase';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
 import { placeBetUnified } from '@/lib/placeBet';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import {
   bootstrapPlayerSession,
   usingApiKeyAuth,
 } from '@/lib/bootstrapPlayerSession';
-import { fetchGameRound } from '@/lib/game-api-client';
+import {
+  fetchGameRound,
+  fetchRoundRank,
+  type RoundRankRow,
+} from '@/lib/game-api-client';
 import {
   GameLiveSnapshot,
   getAuthTokenFromUrl,
@@ -52,6 +57,7 @@ type Listener<T = unknown> = (payload: T) => void;
 export type ControllerEvents = {
   ready: {
     userId: string | null;
+    playerProfile: ReturnType<typeof gamePlayerProfile> | null;
     gameId: string | null;
     balance: number;
     history: string[];
@@ -72,6 +78,7 @@ export type ControllerEvents = {
   spinStart: { winnerId: string; roundId: string };
   spinIndex: number;
   spinComplete: {
+    roundId: string;
     winnerId: string;
     winCoins: number;
     userBetOnWinner: number;
@@ -99,6 +106,7 @@ export class FootballController {
   private listeners = new Map<string, Set<Listener>>();
 
   userId: string | null = null;
+  playerProfile: ReturnType<typeof gamePlayerProfile> | null = null;
   gameId: string | null = null;
   balance = 0;
   todayProfit = 0;
@@ -173,6 +181,12 @@ export class FootballController {
     const session = await bootstrapPlayerSession(GAME_SLUG);
     if (session.apiKey && session.playerId) {
       this.userId = session.playerId;
+      this.playerProfile = gamePlayerProfile(
+        session.username,
+        session.avatarUrl,
+        session.playerId,
+        'You',
+      );
       this.balance = session.balance;
       this.emit('balance', this.balance);
     } else {
@@ -185,7 +199,16 @@ export class FootballController {
       }
       if (user) {
         this.userId = user.id;
-        await this.refreshBalance();
+        const [{ data: profile }] = await Promise.all([
+          supabase.from('users').select('username, avatar_url').eq('id', user.id).maybeSingle(),
+          this.refreshBalance(),
+        ]);
+        this.playerProfile = gamePlayerProfile(
+          profile?.username,
+          profile?.avatar_url,
+          user.id,
+          'You',
+        );
       }
     }
 
@@ -270,6 +293,7 @@ export class FootballController {
 
     this.emit('ready', {
       userId: this.userId,
+      playerProfile: this.playerProfile,
       gameId: this.gameId,
       balance: this.balance,
       history: [...this.history],
@@ -996,9 +1020,61 @@ export class FootballController {
     }
 
     this.emit('spinComplete', {
+      roundId,
       winnerId,
       winCoins,
       userBetOnWinner,
+    });
+  }
+
+  async loadRoundWinners(roundId: string, winnerId: string): Promise<RoundRankRow[]> {
+    if (usingApiKeyAuth()) {
+      const result = await fetchRoundRank(GAME_SLUG, roundId);
+      return result.ok ? result.data.rows : [];
+    }
+    if (!this.userId) return [];
+
+    const { data: bets } = await supabase
+      .from('game_bets')
+      .select('user_id, amount, payout_amount, is_win')
+      .eq('round_id', roundId)
+      .eq('bet_option', winnerId);
+    const multiplier = teamById(winnerId)?.multiplier ?? 0;
+    const totals = new Map<string, { bet: number; win: number }>();
+    for (const row of bets ?? []) {
+      if (!row.user_id) continue;
+      const total = totals.get(row.user_id) ?? { bet: 0, win: 0 };
+      const bet = Number(row.amount) || 0;
+      const payout = Number(row.payout_amount) || (row.is_win ? bet * multiplier : 0);
+      total.bet += bet;
+      total.win += payout;
+      totals.set(row.user_id, total);
+    }
+    const leaders = [...totals.entries()]
+      .filter(([, total]) => total.bet > 0 || total.win > 0)
+      .sort(([leftId, left], [rightId, right]) =>
+        (right.win || right.bet * multiplier) - (left.win || left.bet * multiplier)
+        || leftId.localeCompare(rightId),
+      )
+      .slice(0, 3);
+    if (!leaders.length) return [];
+
+    const { data: profiles } = await supabase
+      .from('users')
+      .select('id, username, avatar_url')
+      .in('id', leaders.map(([playerId]) => playerId));
+    const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    return leaders.map(([playerId, total], index) => {
+      const profile = profilesById.get(playerId);
+      return {
+        rank: index + 1,
+        playerId,
+        amount: total.win || total.bet,
+        bet: total.bet,
+        win: total.win || null,
+        username: profile?.username ?? '',
+        avatarUrl: profile?.avatar_url ?? null,
+      };
     });
   }
 

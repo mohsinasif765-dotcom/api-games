@@ -1,6 +1,8 @@
 'use client';
 
 import { RefObject, useEffect, useState } from 'react';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
 import {
   CHIPS,
   FOOD_ITEMS,
@@ -24,19 +26,18 @@ import styles from './greedy-baby.module.css';
 
 type Props = {
   controller: GreedyBabyController | null;
-  splash: boolean;
-  loadProgress: number;
   canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
+type PlayerProfile = Pick<ControllerEvents['ready'], 'userId' | 'username' | 'avatarUrl'>;
+
 export function GreedyBabyHud({
   controller,
-  splash,
-  loadProgress,
   canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
   const [profit, setProfit] = useState(0);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [round, setRound] = useState<GameRound | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -54,6 +55,10 @@ export function GreedyBabyHud({
 
   useEffect(() => {
     if (!controller) return;
+    const updateProfile = ({ userId, username, avatarUrl }: PlayerProfile) => {
+      setProfile({ userId, username, avatarUrl });
+    };
+    updateProfile(controller);
     setBalance(controller.balance);
     setProfit(controller.todayProfit);
     setSelectedChip(controller.selectedChip);
@@ -96,6 +101,7 @@ export function GreedyBabyHud({
         setSpinning(false);
       }),
       controller.on('ready', (payload) => {
+        updateProfile(payload);
         setBalance(payload.balance);
         setProfit(payload.todayProfit);
         setHistory(payload.history);
@@ -131,6 +137,11 @@ export function GreedyBabyHud({
   const myTotal = Object.values(bets).reduce((a, b) => a + b, 0);
   const winnerFood = result ? foodById(result.winnerId) : undefined;
   const displayProfit = Math.max(0, profit);
+  const playerName = gamePlayerProfile(
+    profile?.username,
+    profile?.avatarUrl,
+    profile?.userId,
+  ).name;
 
   const closeResult = () => {
     setResult(null);
@@ -139,27 +150,6 @@ export function GreedyBabyHud({
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/greedy-baby/splash.webp"
-            alt="Greedy Baby"
-            className={styles.splashBg}
-            draggable={false}
-          />
-          <div className={styles.splashFooter}>
-            <div className={styles.splashBarTrack}>
-              <div
-                className={styles.splashBarFill}
-                style={{ width: `${Math.max(loadProgress, 4)}%` }}
-              />
-            </div>
-            <div className={styles.splashPct}>LOADING… {loadProgress}%</div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           <div className={styles.iconCol}>
@@ -329,11 +319,27 @@ export function GreedyBabyHud({
             </span>
           </div>
           <div className={styles.footerDivider} aria-hidden />
-          <div className={styles.footerStat}>
-            <span className={styles.footerStatLabel}>Mine</span>
-            <span className={styles.footerStatValueGood}>
-              ◆ {balance.toLocaleString()}
-            </span>
+          <div className={`${styles.footerStat} ${styles.profileStat}`}>
+            {profile?.userId && (
+              <GamePlayerAvatar
+                src={profile.avatarUrl}
+                playerId={profile.userId}
+                className={styles.playerAvatar}
+                draggable={false}
+              />
+            )}
+            <div className={styles.profileMeta}>
+              {profile?.userId ? (
+                <span className={styles.playerName} title={playerName}>
+                  {playerName}
+                </span>
+              ) : (
+                <span className={styles.footerStatLabel}>Mine</span>
+              )}
+              <span className={styles.footerStatValueGood}>
+                ◆ {balance.toLocaleString()}
+              </span>
+            </div>
           </div>
         </div>
         </div>
@@ -390,11 +396,26 @@ export function GreedyBabyHud({
             </div>
 
             <div className={styles.resultFooter}>
-              <div className={styles.resultFooterStat}>
-                <span className={styles.resultFooterLabel}>Balance</span>
-                <span className={styles.resultFooterValue}>
-                  ◆ {balance.toLocaleString()}
-                </span>
+              <div className={`${styles.resultFooterStat} ${styles.profileStat}`}>
+                {profile?.userId && (
+                  <GamePlayerAvatar
+                    src={profile.avatarUrl}
+                    playerId={profile.userId}
+                    className={styles.playerAvatar}
+                    draggable={false}
+                  />
+                )}
+                <div className={styles.profileMeta}>
+                  {profile?.userId && (
+                    <span className={styles.playerName} title={playerName}>
+                      {playerName}
+                    </span>
+                  )}
+                  <span className={styles.resultFooterLabel}>Balance</span>
+                  <span className={styles.resultFooterValue}>
+                    ◆ {balance.toLocaleString()}
+                  </span>
+                </div>
               </div>
               <div className={styles.resultFooterStat}>
                 <span className={styles.resultFooterLabel}>Win Today</span>

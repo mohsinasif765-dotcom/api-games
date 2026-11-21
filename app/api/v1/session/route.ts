@@ -57,8 +57,8 @@ export async function POST(req: Request) {
       });
     }
 
-    let username = body.username?.trim() || externalId;
-    let avatarUrl = body.avatar_url ?? null;
+    let username = body.username?.trim() || null;
+    let avatarUrl = body.avatar_url?.trim() || null;
     let coins = Math.max(0, Math.floor(Number(body.coins ?? 0)));
     let sstoken = body.sstoken?.trim() || null;
     let sstokenExpires: string | null = null;
@@ -88,14 +88,19 @@ export async function POST(req: Request) {
       coins = 100000;
     }
 
-    const playerRes = await query<{ id: string; coins: string }>(
+    const playerRes = await query<{
+      id: string;
+      coins: string;
+      username: string;
+      avatar_url: string | null;
+    }>(
       `INSERT INTO players (
          tenant_id, external_id, username, avatar_url, coins, sstoken, sstoken_expires_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, COALESCE($3::text, $2), $4, $5, $6, $7)
        ON CONFLICT (tenant_id, external_id)
        DO UPDATE SET
-         username = EXCLUDED.username,
+         username = COALESCE($3::text, NULLIF(BTRIM(players.username), ''), EXCLUDED.username),
          avatar_url = COALESCE(EXCLUDED.avatar_url, players.avatar_url),
          coins = CASE
            WHEN $8 = 'merchant_callback' THEN EXCLUDED.coins
@@ -103,7 +108,7 @@ export async function POST(req: Request) {
          END,
          sstoken = COALESCE(EXCLUDED.sstoken, players.sstoken),
          sstoken_expires_at = COALESCE(EXCLUDED.sstoken_expires_at, players.sstoken_expires_at)
-       RETURNING id, coins`,
+       RETURNING id, coins, username, avatar_url`,
       [
         tenantId,
         externalId,
@@ -131,8 +136,8 @@ export async function POST(req: Request) {
         sstoken_expires_at: sstokenExpires,
         player_id: playerId,
         external_id: externalId,
-        username,
-        avatar_url: avatarUrl,
+        username: playerRes.rows[0].username,
+        avatar_url: playerRes.rows[0].avatar_url,
         coins: Number(playerRes.rows[0].coins),
         tenant: {
           id: tenant.id,

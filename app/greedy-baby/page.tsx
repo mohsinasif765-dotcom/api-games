@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GreedySky } from '@/components/GreedySky';
+import { GameSplash } from '@/components/GameSplash';
 import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import { GAME_WIDTH } from '@/lib/greedy-baby-phaser/config';
@@ -87,6 +88,14 @@ export default function GreedyBabyPhaserPage() {
   return (
     <div data-loading={loading} className={`game-viewport ${styles.viewport}`}>
       {!loading && <GreedySky />}
+      {loading && (
+        <GameSplash
+          name="Greedy Baby"
+          src="/greedy-baby/splash.webp"
+          background="#1a0a2e"
+          progress={loadProgress}
+        />
+      )}
       <div ref={viewportRef} className="game-viewport-content">
         <div
           className={styles.root}
@@ -98,8 +107,6 @@ export default function GreedyBabyPhaserPage() {
         >
           <GreedyBabyHud
             controller={controller}
-            splash={loading}
-            loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />
         </div>

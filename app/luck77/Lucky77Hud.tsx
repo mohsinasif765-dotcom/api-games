@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject, useEffect, useState } from 'react';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
 import {
   BET_OPTIONS,
   CHIPS,
@@ -15,15 +16,11 @@ import styles from './lucky-77.module.css';
 
 type Props = {
   controller: Lucky77Controller | null;
-  splash: boolean;
-  loadProgress: number;
   canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
 export function Lucky77Hud({
   controller,
-  splash,
-  loadProgress,
   canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
@@ -124,27 +121,6 @@ export function Lucky77Hud({
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/77/splash.webp"
-            alt="Lucky 77"
-            className={styles.splashBg}
-            draggable={false}
-          />
-          <div className={styles.splashFooter}>
-            <div className={styles.splashBarTrack}>
-              <div
-                className={styles.splashBarFill}
-                style={{ width: `${Math.max(loadProgress, 4)}%` }}
-              />
-            </div>
-            <div className={styles.splashPct}>LOADING… {loadProgress}%</div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <button
           type="button"
@@ -328,16 +304,17 @@ export function Lucky77Hud({
         <div className={styles.footer}>
           <div className={styles.profileCard}>
             <div className={styles.profileAvatarBox}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <GamePlayerAvatar
                 src={profile.avatar}
-                alt=""
+                playerId={controller?.userId}
                 className={styles.profileAvatar}
                 draggable={false}
               />
             </div>
             <div className={styles.profileMeta}>
-              <div className={styles.profileName}>{profile.name}</div>
+              <div className={styles.profileName} title={profile.name}>
+                {profile.name}
+              </div>
               <div className={styles.profileWallet}>
                 <span className={styles.profileGCoin} aria-hidden>
                   G
@@ -386,6 +363,7 @@ export function Lucky77Hud({
         const second = top[1] ?? null;
         const third = top[2] ?? null;
         const me = result.me;
+        const meName = me?.name || profile.name;
 
         const slot = (
           player: (typeof top)[number] | null,
@@ -404,31 +382,27 @@ export function Lucky77Hud({
               <span>{rank}</span>
             </div>
             <div className={styles.podiumAvatarWrap}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={
-                  player?.avatar ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=empty-${rank}`
-                }
-                alt=""
+              <GamePlayerAvatar
+                src={player?.avatar}
+                playerId={player?.userId ?? `empty-${rank}`}
                 className={styles.podiumAvatar}
                 draggable={false}
               />
             </div>
-            <div className={styles.podiumRibbon}>
+            <div className={styles.podiumRibbon} title={player?.name}>
               {player?.name ?? '—'}
             </div>
             <div className={styles.podiumStats}>
               <div className={styles.statRow}>
                 <span className={styles.statLabel}>Bet:</span>
                 <span className={styles.statValue}>
-                  {(player?.bet ?? 0).toLocaleString()}
+                  {player?.bet?.toLocaleString() ?? '—'}
                 </span>
               </div>
               <div className={styles.statRow}>
                 <span className={styles.statLabel}>Win:</span>
                 <span className={styles.statValue}>
-                  {(player?.win ?? 0).toLocaleString()}
+                  {player?.win?.toLocaleString() ?? '—'}
                 </span>
               </div>
             </div>
@@ -448,19 +422,14 @@ export function Lucky77Hud({
                 {slot(third, 3)}
               </div>
               <div className={styles.meBar}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    me?.avatar ||
-                    profile.avatar ||
-                    'https://api.dicebear.com/7.x/avataaars/svg?seed=you'
-                  }
-                  alt=""
+                <GamePlayerAvatar
+                  src={me?.avatar || profile.avatar}
+                  playerId={me?.userId || controller?.userId}
                   className={styles.meAvatar}
                   draggable={false}
                 />
-                <span className={styles.meName}>
-                  {me?.name || profile.name || 'You'}
+                <span className={styles.meName} title={meName}>
+                  {meName}
                 </span>
                 <div className={styles.meStats}>
                   <div className={styles.statRow}>

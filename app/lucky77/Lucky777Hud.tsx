@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject, useEffect, useState } from 'react';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
 import {
   BET_OPTIONS,
   CHIPS,
@@ -15,15 +16,11 @@ import styles from './lucky-777.module.css';
 
 type Props = {
   controller: Lucky777Controller | null;
-  splash: boolean;
-  loadProgress: number;
   canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
 export function Lucky777Hud({
   controller,
-  splash,
-  loadProgress,
   canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
@@ -34,6 +31,7 @@ export function Lucky777Hud({
   const [selectedChip, setSelectedChip] = useState(1000);
   const [muted, setMuted] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [profile, setProfile] = useState<ControllerEvents['profile']>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [startBetting, setStartBetting] = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -48,6 +46,7 @@ export function Lucky777Hud({
     setMuted(controller.isMuted);
     setHistory(controller.history);
     setRound(controller.currentRound);
+    setProfile(controller.userId ? controller.playerProfile : null);
 
     const offs = [
       controller.on('balance', setBalance),
@@ -72,6 +71,7 @@ export function Lucky777Hud({
       controller.on('selectedChip', setSelectedChip),
       controller.on('muted', setMuted),
       controller.on('history', setHistory),
+      controller.on('profile', setProfile),
       controller.on('toast', (msg) => {
         setToast(msg);
         window.setTimeout(() => setToast(null), 2200);
@@ -101,6 +101,7 @@ export function Lucky777Hud({
         setBalance(payload.balance);
         setHistory(payload.history);
         setRound(payload.round);
+        setProfile(payload.profile);
       }),
     ];
     return () => offs.forEach((off) => off());
@@ -121,29 +122,6 @@ export function Lucky777Hud({
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          <div className={styles.splashInner}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/lucky77/splace-screen.jpeg?v=2"
-              alt="Lucky 77"
-              className={styles.splashBg}
-              draggable={false}
-            />
-            <div className={styles.splashFooter}>
-              <div className={styles.splashBarTrack}>
-                <div
-                  className={styles.splashBarFill}
-                  style={{ width: `${Math.max(loadProgress, 4)}%` }}
-                />
-              </div>
-              <div className={styles.splashPct}>{loadProgress}%</div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           <div className={styles.topLeft}>
@@ -171,6 +149,19 @@ export function Lucky777Hud({
                 />
               </button>
             </div>
+            {profile && (
+              <div className={styles.profileRow}>
+                <GamePlayerAvatar
+                  src={profile.avatar}
+                  playerId={controller?.userId}
+                  className={styles.profileAvatar}
+                  draggable={false}
+                />
+                <span className={styles.profileName} title={profile.name}>
+                  {profile.name}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className={styles.sideTools}>
@@ -335,13 +326,7 @@ export function Lucky777Hud({
           const meBet = Math.max(me?.bet ?? 0, result.userBetOnWinner ?? 0);
           const meWin = Math.max(me?.win ?? 0, result.winCoins ?? 0);
 
-          const fmt = (n: number) => (n ?? 0).toLocaleString();
-          const avatarOf = (
-            player: (typeof top)[number] | null,
-            seed: string,
-          ) =>
-            player?.avatar ||
-            `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+          const meName = me?.name || profile?.name || 'You';
 
           const podiumCol = (
             player: (typeof top)[number] | null,
@@ -357,17 +342,22 @@ export function Lucky777Hud({
               }`}
             >
               <div className={styles.podiumAvatarWrap}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatarOf(player, `empty-${rank}`)}
-                  alt=""
+                <GamePlayerAvatar
+                  src={player?.avatar}
+                  playerId={player?.userId ?? `empty-${rank}`}
                   className={styles.podiumAvatar}
                   draggable={false}
                 />
               </div>
-              <div className={styles.podiumName}>{player?.name ?? '—'}</div>
-              <div className={styles.statBet}>Bet: {fmt(player?.bet ?? 0)}</div>
-              <div className={styles.statWin}>Win: {fmt(player?.win ?? 0)}</div>
+              <div className={styles.podiumName} title={player?.name}>
+                {player?.name ?? '—'}
+              </div>
+              <div className={styles.statBet}>
+                Bet: {player?.bet?.toLocaleString() ?? '—'}
+              </div>
+              <div className={styles.statWin}>
+                Win: {player?.win?.toLocaleString() ?? '—'}
+              </div>
             </div>
           );
 
@@ -389,19 +379,18 @@ export function Lucky777Hud({
                   {podiumCol(second, 2)}
                   {podiumCol(first, 1)}
                   {podiumCol(third, 3)}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatarOf(me, 'you')}
-                    alt=""
+                  <GamePlayerAvatar
+                    src={me?.avatar || profile?.avatar}
+                    playerId={me?.userId || controller?.userId}
                     className={styles.meAvatar}
                     draggable={false}
                   />
-                  <span className={styles.meName}>{me?.name ?? 'You'}</span>
+                  <span className={styles.meName} title={meName}>{meName}</span>
                   <div className={styles.meStatBet}>
-                    Bet: {fmt(meBet)}
+                    Bet: {meBet.toLocaleString()}
                   </div>
                   <div className={styles.meStatWin}>
-                    Win: {fmt(meWin)}
+                    Win: {meWin.toLocaleString()}
                   </div>
                 </div>
               </div>

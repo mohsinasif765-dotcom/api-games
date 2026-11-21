@@ -52,6 +52,8 @@ type Listener<T = unknown> = (payload: T) => void;
 export type ControllerEvents = {
   ready: {
     userId: string | null;
+    username: string | null;
+    avatarUrl: string | null;
     gameId: string | null;
     balance: number;
     history: string[];
@@ -98,6 +100,8 @@ export class GreedyBabyController {
   private listeners = new Map<string, Set<Listener>>();
 
   userId: string | null = null;
+  username: string | null = null;
+  avatarUrl: string | null = null;
   gameId: string | null = null;
   balance = 0;
   todayProfit = 0;
@@ -164,6 +168,8 @@ export class GreedyBabyController {
     const session = await bootstrapPlayerSession(GAME_SLUG);
     if (session.apiKey && session.playerId) {
       this.userId = session.playerId;
+      this.username = session.username;
+      this.avatarUrl = session.avatarUrl;
       this.balance = session.balance;
       this.emit('balance', this.balance);
     } else {
@@ -176,6 +182,11 @@ export class GreedyBabyController {
       }
       if (user) {
         this.userId = user.id;
+        const meta = user.user_metadata as
+          | { username?: string; full_name?: string; name?: string; avatar_url?: string }
+          | undefined;
+        this.username = meta?.username || meta?.full_name || meta?.name || user.email || null;
+        this.avatarUrl = meta?.avatar_url || null;
         await this.refreshBalance();
       }
     }
@@ -255,6 +266,8 @@ export class GreedyBabyController {
 
     this.emit('ready', {
       userId: this.userId,
+      username: this.username,
+      avatarUrl: this.avatarUrl,
       gameId: this.gameId,
       balance: this.balance,
       history: [...this.history],

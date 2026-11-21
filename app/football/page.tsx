@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { GameSplash } from '@/components/GameSplash';
 import { useGameViewport } from '@/components/useGameViewport';
 import { applyWebViewAccessToken } from '@/lib/webview-auth';
 import type { FootballController } from '@/lib/football-phaser/FootballController';
@@ -96,6 +97,14 @@ export default function FootballPhaserPage() {
 
   return (
     <div data-loading={loading} className={`game-viewport ${styles.root}`}>
+      {loading && (
+        <GameSplash
+          name="Bounty Football"
+          src="/footbal2/seven.webp"
+          background="#062214"
+          progress={loadProgress}
+        />
+      )}
       <div ref={viewportRef} className="game-viewport-content">
         <div
           className={styles.frame}
@@ -107,8 +116,6 @@ export default function FootballPhaserPage() {
         >
           <FootballHud
             controller={controller}
-            splash={loading}
-            loadProgress={loadProgress}
             canvasHostRef={hostRef}
           />
         </div>

@@ -20,15 +20,12 @@ import {
   bootstrapPlayerSession,
   usingApiKeyAuth,
 } from '@/lib/bootstrapPlayerSession';
-import { fetchGameRound } from '@/lib/game-api-client';
+import { fetchGameRound, fetchRoundRank } from '@/lib/game-api-client';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
 import {
   startSmoothBoardSpin,
   type SmoothBoardSpinHandle,
 } from '@/lib/smoothBoardSpin';
-import {
-  resolveAvatarUrl,
-  seatDisplayName,
-} from '@/lib/teenPatti/avatar';
 import {
   BET_OPTIONS,
   WHEEL_SEGMENTS,
@@ -60,8 +57,8 @@ export type RoundPodiumPlayer = {
   userId: string;
   name: string;
   avatar: string;
-  bet: number;
-  win: number;
+  bet: number | null;
+  win: number | null;
 };
 
 type Listener<T = unknown> = (payload: T) => void;
@@ -140,6 +137,7 @@ export class Lucky77Controller {
   private spinCompleteForRound: string | null = null;
   private spinHandle: SmoothBoardSpinHandle | null = null;
   private myProfile: { name: string; avatar: string } | null = null;
+  private tenantPlayer = false;
   private pageJustLoaded = true;
   private tickAudio: HTMLAudioElement | null = null;
   private chipSelectAudio: HTMLAudioElement | null = null;
@@ -192,6 +190,8 @@ export class Lucky77Controller {
     const session = await bootstrapPlayerSession(GAME_SLUG);
     if (session.apiKey && session.playerId) {
       this.userId = session.playerId;
+      this.tenantPlayer = true;
+      this.setMyProfile(session.username, session.avatarUrl);
       this.balance = session.balance;
       this.emit('balance', this.balance);
     } else {
@@ -543,12 +543,12 @@ export class Lucky77Controller {
   }
 
   get playerProfile(): { name: string; avatar: string } {
-    return (
-      this.myProfile ?? {
-        name: 'You',
-        avatar: resolveAvatarUrl(null, this.userId),
-      }
-    );
+    return this.myProfile ?? gamePlayerProfile(null, null, this.userId, 'You');
+  }
+
+  private setMyProfile(username?: string | null, avatarUrl?: string | null) {
+    this.myProfile = gamePlayerProfile(username, avatarUrl, this.userId, 'You');
+    this.emit('profile', this.myProfile);
   }
 
   private async refreshMyProfile() {
@@ -558,12 +558,7 @@ export class Lucky77Controller {
       .select('username, avatar_url')
       .eq('id', this.userId)
       .maybeSingle();
-    const profile = {
-      name: seatDisplayName(data?.username, 'You'),
-      avatar: resolveAvatarUrl(data?.avatar_url, this.userId),
-    };
-    this.myProfile = profile;
-    this.emit('profile', profile);
+    this.setMyProfile(data?.username, data?.avatar_url);
   }
 
   /**
@@ -575,6 +570,40 @@ export class Lucky77Controller {
     winnerId: string,
   ): Promise<{ top: RoundPodiumPlayer[]; me: RoundPodiumPlayer | null }> {
     const mult = optionById(winnerId)?.multiplier || 1;
+    const localBets = this.currentBets;
+    const localBetTotal = Object.values(localBets).reduce(
+      (sum, amount) => sum + amount,
+      0,
+    );
+    const localBetOnWinner = localBets[winnerId] || 0;
+    const localWin = localBetOnWinner * mult;
+
+    if (this.tenantPlayer) {
+      const rank = await fetchRoundRank(GAME_SLUG, roundId);
+      const rows = rank.ok && Array.isArray(rank.data?.rows) ? rank.data.rows : [];
+      const top = rows.map((row) => {
+        const isMe = row.playerId === this.userId;
+        const bet = row.bet ?? (isMe ? localBetOnWinner : null);
+        return {
+          userId: row.playerId,
+          ...(isMe
+            ? this.playerProfile
+            : gamePlayerProfile(row.username, row.avatarUrl, row.playerId)),
+          bet,
+          win: row.win ?? null,
+        };
+      });
+      const rankedMe = top.find((player) => player.userId === this.userId);
+      const me = this.userId
+        ? {
+            userId: this.userId,
+            ...this.playerProfile,
+            bet: Math.max(localBetTotal, rankedMe?.bet ?? 0),
+            win: rankedMe?.win ?? localWin,
+          }
+        : null;
+      return { top, me };
+    }
 
     const { data: winBets } = await supabase
       .from('game_bets')
@@ -634,12 +663,14 @@ export class Lucky77Controller {
       const isMe = userId === this.userId;
       return {
         userId,
-        name:
-          (isMe && this.myProfile?.name) ||
-          seatDisplayName(u?.username, isMe ? 'You' : 'Player'),
-        avatar:
-          (isMe && this.myProfile?.avatar) ||
-          resolveAvatarUrl(u?.avatar_url, userId),
+        ...(isMe && this.myProfile
+          ? this.myProfile
+          : gamePlayerProfile(
+              u?.username,
+              u?.avatar_url,
+              userId,
+              isMe ? 'You' : 'Player',
+            )),
         bet,
         win,
       };
@@ -650,11 +681,8 @@ export class Lucky77Controller {
     let me: RoundPodiumPlayer | null = null;
     if (this.userId) {
       const myWinRow = byUser.get(this.userId);
-      let betTotal = Object.values(this.currentBets).reduce(
-        (a, n) => a + (n || 0),
-        0,
-      );
-      let winTotal = myWinRow?.win ?? 0;
+      let betTotal = localBetTotal;
+      let winTotal = myWinRow?.win ?? localWin;
 
       // Prefer live DB totals for this round when available.
       const { data: myRows } = await supabase
@@ -1068,9 +1096,6 @@ export class Lucky77Controller {
     this.isSpinning = true;
     this.emit('spinStart', { winnerId, roundId, winIndex: winIdx });
     this.playSound('/fruit-party/sounds/spin_start.mp3');
-
-    // Prefetch podium while the wheel spins so the card is ready on land.
-    void this.fetchRoundPodium(roundId, winnerId);
 
     this.lastSpinTickAt = 0;
     this.spinHandle = startSmoothBoardSpin({

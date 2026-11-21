@@ -13,12 +13,11 @@ import type {
   EuroRouletteController,
   GameRound,
 } from '@/lib/euro-roulette-phaser/EuroRouletteController';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
 import styles from './euro-roulette.module.css';
 
 type Props = {
   controller: EuroRouletteController | null;
-  splash: boolean;
-  loadProgress: number;
   canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
@@ -35,11 +34,10 @@ function chipImageForAmount(amount: number): string {
 
 export function EuroRouletteHud({
   controller,
-  splash,
-  loadProgress,
   canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
+  const [playerProfile, setPlayerProfile] = useState<EuroRouletteController['playerProfile']>(null);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [round, setRound] = useState<GameRound | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -58,6 +56,7 @@ export function EuroRouletteHud({
   useEffect(() => {
     if (!controller) return;
     setBalance(controller.balance);
+    setPlayerProfile(controller.playerProfile);
     setSelectedChip(controller.selectedChip);
     setMuted(controller.isMuted);
     setHistory(controller.history);
@@ -109,6 +108,7 @@ export function EuroRouletteHud({
       }),
       controller.on('ready', (payload) => {
         setBalance(payload.balance);
+        setPlayerProfile(payload.playerProfile);
         setHistory(payload.history);
         setRound(payload.round);
       }),
@@ -131,27 +131,6 @@ export function EuroRouletteHud({
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/euro-roulette/splash.webp"
-            alt="Euro Roulette"
-            className={styles.splashBg}
-            draggable={false}
-          />
-          <div className={styles.splashFooter}>
-            <div className={styles.splashBarTrack}>
-              <div
-                className={styles.splashBarFill}
-                style={{ width: `${Math.max(loadProgress, 4)}%` }}
-              />
-            </div>
-            <div className={styles.splashPct}>LOADING… {loadProgress}%</div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topMeta}>
           <div className={styles.roundLabel}>
@@ -246,19 +225,20 @@ export function EuroRouletteHud({
                 draggable={false}
               />
             </button>
-            <button
-              type="button"
-              className={styles.playerBtn}
-              aria-label="Player"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+            {playerProfile ? (
+              <div className={styles.playerProfile} title={playerProfile.name}>
+                <GamePlayerAvatar src={playerProfile.avatar} draggable={false} />
+                <span>{playerProfile.name}</span>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src="/euro-roulette/player-button.webp"
-                alt=""
+                alt="Player"
                 className={styles.playerPill}
                 draggable={false}
               />
-            </button>
+            )}
           </div>
         </div>
 
@@ -379,6 +359,12 @@ export function EuroRouletteHud({
               {result.winnerNumber}
             </div>
             <div className={styles.modalInfoBar}>
+              {playerProfile && (
+                <div className={styles.modalPlayer} title={playerProfile.name}>
+                  <GamePlayerAvatar src={playerProfile.avatar} draggable={false} />
+                  <span>{playerProfile.name}</span>
+                </div>
+              )}
               {result.winCoins > 0 ? (
                 <span className={styles.modalPayoutValue}>
                   +{result.winCoins.toLocaleString()}

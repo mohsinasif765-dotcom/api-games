@@ -184,13 +184,14 @@ export async function merchantGetUserInfo(
   if (!res.ok || !res.data) return { ok: false, error: res.error };
   const d = res.data;
   const uid = String(d.uid || d.user_id || externalId);
+  const profileText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
   const coins = Math.max(0, Math.floor(Number(d.coins ?? d.balance ?? 0)));
   return {
     ok: true,
     user: {
       uid,
-      nickname: d.nickname || d.username || null,
-      avatar: d.avatar || d.avatar_url || null,
+      nickname: profileText(d.nickname) || profileText(d.username) || null,
+      avatar: profileText(d.avatar) || profileText(d.avatar_url) || null,
       coins,
     },
   };

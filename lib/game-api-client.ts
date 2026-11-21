@@ -255,6 +255,8 @@ export type RoundRankRow = {
   username: string;
   avatarUrl: string | null;
   amount: number;
+  bet?: number;
+  win?: number | null;
 };
 
 export async function fetchRoundRank(slug: string, roundId: string, limit = 3) {

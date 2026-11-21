@@ -34,6 +34,8 @@ export async function fetchTodayRevenueRank(params: {
      JOIN game_rounds r ON r.id = b.round_id
      JOIN game_configs g ON g.id = r.game_id
      WHERE g.slug = $1
+       AND p.tenant_id = $2
+       AND (b.tenant_id = $2 OR b.tenant_id IS NULL)
        AND (g.tenant_id = $2 OR g.tenant_id IS NULL)
        AND b.created_at >= date_trunc('day', now())
        AND r.status = 'finished'

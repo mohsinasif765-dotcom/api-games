@@ -63,7 +63,7 @@ export async function GET(req: Request) {
                username = COALESCE($2, username),
                avatar_url = COALESCE($3, avatar_url)
            WHERE id = $4`,
-          [coins, username, avatarUrl, auth.player.id],
+          [coins, info.user.nickname, info.user.avatar, auth.player.id],
         );
       }
     }

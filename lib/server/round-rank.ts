@@ -7,6 +7,8 @@ export type RoundRankRow = {
   username: string;
   avatarUrl: string | null;
   amount: number;
+  bet: number;
+  win: number | null;
 };
 
 export async function fetchRoundRanking(params: {
@@ -21,6 +23,7 @@ export async function fetchRoundRanking(params: {
     username: string | null;
     avatar_url: string | null;
     amount: string | number;
+    bet: string | number;
   }>(
     `SELECT
        p.id AS player_id,
@@ -31,10 +34,12 @@ export async function fetchRoundRanking(params: {
            WHEN COALESCE(b.payout_amount, 0) > 0 THEN b.payout_amount
            ELSE 0
          END
-       ), 0) AS amount
+       ), 0) AS amount,
+       COALESCE(SUM(b.amount) FILTER (WHERE b.payout_amount > 0), 0) AS bet
      FROM game_bets b
      JOIN players p ON p.id = b.player_id
      WHERE b.round_id = $1
+       AND p.tenant_id = $2
        AND (b.tenant_id = $2 OR b.tenant_id IS NULL)
      GROUP BY p.id, p.username, p.avatar_url
      HAVING COALESCE(SUM(
@@ -55,6 +60,8 @@ export async function fetchRoundRanking(params: {
       username: row.username?.trim() || 'Player',
       avatarUrl: row.avatar_url,
       amount: Number(row.amount) || 0,
+      bet: Number(row.bet) || 0,
+      win: Number(row.amount) || 0,
     }));
   }
 
@@ -74,6 +81,7 @@ export async function fetchRoundRanking(params: {
      JOIN players p ON p.id = b.player_id
      JOIN game_rounds r ON r.id = b.round_id
      WHERE b.round_id = $1
+       AND p.tenant_id = $2
        AND (b.tenant_id = $2 OR b.tenant_id IS NULL)
        AND b.bet_option = r.winner_result
      GROUP BY p.id, p.username, p.avatar_url
@@ -88,5 +96,7 @@ export async function fetchRoundRanking(params: {
     username: row.username?.trim() || 'Player',
     avatarUrl: row.avatar_url,
     amount: Number(row.amount) || 0,
+    bet: Number(row.amount) || 0,
+    win: null,
   }));
 }

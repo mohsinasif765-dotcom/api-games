@@ -22,12 +22,13 @@ import type {
   GameRound,
 } from '@/lib/football-phaser/FootballController';
 import { closeGame } from '@/lib/flutter-bridge';
+import type { RoundRankRow } from '@/lib/game-api-client';
+import { gamePlayerProfile } from '@/lib/gamePlayerProfile';
+import { GamePlayerAvatar } from '@/components/GamePlayerAvatar';
 import styles from './football-phaser.module.css';
 
 type Props = {
   controller: FootballController | null;
-  splash: boolean;
-  loadProgress: number;
   canvasHostRef: RefObject<HTMLDivElement | null>;
 };
 
@@ -43,11 +44,10 @@ function chipImageForAmount(amount: number): string {
 
 export function FootballHud({
   controller,
-  splash,
-  loadProgress,
   canvasHostRef,
 }: Props) {
   const [balance, setBalance] = useState(0);
+  const [playerProfile, setPlayerProfile] = useState<FootballController['playerProfile']>(null);
   const [bets, setBets] = useState<Record<string, number>>({});
   const [allBets, setAllBets] = useState<Record<string, number>>({});
   /** Last chip denomination placed on each box (for chip face). */
@@ -66,11 +66,11 @@ export function FootballHud({
   const [winPopup, setWinPopup] = useState<{
     winnerId: string;
     winCoins: number;
-    userBetOnWinner: number;
+    roundId: string;
     multiplier: number;
     roundNo: string;
-    roomWinPot: number;
   } | null>(null);
+  const [roundWinners, setRoundWinners] = useState<{ roundId: string; rows: RoundRankRow[] } | null>(null);
   const [popupSecs, setPopupSecs] = useState(5);
   const [ping, setPing] = useState(12);
 
@@ -80,6 +80,7 @@ export function FootballHud({
   useEffect(() => {
     if (!controller) return;
     setBalance(controller.balance);
+    setPlayerProfile(controller.playerProfile);
     setSelectedChip(controller.selectedChip);
     setMuted(controller.isMuted);
     setHistory(controller.history);
@@ -139,19 +140,14 @@ export function FootballHud({
         setSpinIndex(null);
         const team = teamById(payload.winnerId);
         const mult = team?.multiplier || 0;
-        const roomOnWinner = Math.max(
-          controller.allBets[payload.winnerId] || 0,
-          payload.userBetOnWinner || 0,
-        );
         setWinPopup({
           winnerId: payload.winnerId,
           winCoins: payload.winCoins,
-          userBetOnWinner: payload.userBetOnWinner || 0,
+          roundId: payload.roundId,
           multiplier: mult,
           roundNo: String(
             controller.currentRound?.round_number ?? '000',
           ).padStart(3, '0'),
-          roomWinPot: roomOnWinner * mult,
         });
         setPopupSecs(5);
       }),
@@ -167,6 +163,7 @@ export function FootballHud({
       }),
       controller.on('ready', (payload) => {
         setBalance(payload.balance);
+        setPlayerProfile(payload.playerProfile);
         setHistory(payload.history);
         setRound(payload.round);
       }),
@@ -202,55 +199,32 @@ export function FootballHud({
     return () => window.clearInterval(tick);
   }, [winPopup]);
 
-  const winVictors = (() => {
-    if (!winPopup) return [];
-    const pot = Math.max(winPopup.roomWinPot, winPopup.winCoins, 1000);
-    const base = [
-      {
-        rank: 1,
-        name: winPopup.winCoins > 0 ? 'You' : 'Player 1',
-        amount: winPopup.winCoins > 0 ? winPopup.winCoins : Math.floor(pot * 0.45),
-        seed: winPopup.winCoins > 0 ? 'you-win' : `${winPopup.roundNo}-a`,
-      },
-      {
-        rank: 2,
-        name: 'Player 2',
-        amount: Math.floor(pot * 0.32),
-        seed: `${winPopup.roundNo}-b`,
-      },
-      {
-        rank: 3,
-        name: 'Player 3',
-        amount: Math.floor(pot * 0.2),
-        seed: `${winPopup.roundNo}-c`,
-      },
-    ];
-    return base;
-  })();
+  useEffect(() => {
+    if (!controller || !winPopup) return;
+    const { roundId, winnerId } = winPopup;
+    let active = true;
+    let retryTimer: number | undefined;
+    const load = async (retry: boolean) => {
+      const rows = await controller.loadRoundWinners(roundId, winnerId);
+      if (!active) return;
+      setRoundWinners({ roundId, rows });
+      if (retry && (!rows.length || rows.some((row) => row.win === null))) {
+        retryTimer = window.setTimeout(() => void load(false), 1000);
+      }
+    };
+    void load(true);
+    return () => {
+      active = false;
+      window.clearTimeout(retryTimer);
+    };
+  }, [controller, winPopup]);
+
+  const winVictors = winPopup?.roundId === roundWinners?.roundId
+    ? roundWinners?.rows ?? []
+    : [];
 
   return (
     <>
-      {splash && (
-        <div className={styles.splash}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/footbal2/seven.webp"
-            alt="Bounty Football"
-            className={styles.splashBg}
-            draggable={false}
-          />
-          <div className={styles.splashFooter}>
-            <div className={styles.splashBarTrack}>
-              <div
-                className={styles.splashBarFill}
-                style={{ width: `${Math.max(loadProgress, 4)}%` }}
-              />
-            </div>
-            <div className={styles.splashPct}>LOADING… {loadProgress}%</div>
-          </div>
-        </div>
-      )}
-
       <div className={styles.hud}>
         <div className={styles.topBar}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -273,19 +247,28 @@ export function FootballHud({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/footbal2/back_button.webp" alt="" draggable={false} />
               </button>
-              <button
-                type="button"
-                className={styles.sideIconBtn}
-                aria-label="Players"
-                onClick={() => controller?.unlockAudio()}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/footbal2/players_button.webp"
-                  alt=""
-                  draggable={false}
-                />
-              </button>
+              {playerProfile ? (
+                <button
+                  type="button"
+                  className={`${styles.sideIconBtn} ${styles.playerButton}`}
+                  aria-label={playerProfile.name}
+                  title={playerProfile.name}
+                  onClick={() => controller?.unlockAudio()}
+                >
+                  <GamePlayerAvatar src={playerProfile.avatar} draggable={false} />
+                  <span className={styles.playerName}>{playerProfile.name}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.sideIconBtn}
+                  aria-label="Players"
+                  onClick={() => controller?.unlockAudio()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/footbal2/players_button.webp" alt="" draggable={false} />
+                </button>
+              )}
             </div>
 
             <div className={styles.balanceBar} aria-label="Balance">
@@ -604,45 +587,57 @@ export function FootballHud({
               <div className={styles.winPopupMult}>
                 X{winPopup.multiplier}
               </div>
+              {playerProfile && (
+                <div className={styles.resultPlayer} title={playerProfile.name}>
+                  <GamePlayerAvatar src={playerProfile.avatar} draggable={false} />
+                  <span>{playerProfile.name}</span>
+                </div>
+              )}
               <div className={styles.winPopupStatus}>
                 {winPopup.winCoins > 0
                   ? `You won +${formatChip(winPopup.winCoins)}`
                   : 'You have selected nothing this round'}
               </div>
 
-              <div className={styles.winVictors}>
-                <div className={styles.winVictorsTitle}>
-                  — The top victors of this round —
+              {winVictors.length > 0 && (
+                <div className={styles.winVictors}>
+                  <div className={styles.winVictorsTitle}>
+                    — The top victors of this round —
+                  </div>
+                  <div className={styles.winVictorsRow}>
+                    {winVictors.map((row) => {
+                      const ownProfile = row.playerId === controller?.userId ? playerProfile : null;
+                      const { name, avatar } = gamePlayerProfile(
+                        row.username,
+                        row.avatarUrl ?? ownProfile?.avatar,
+                        row.playerId,
+                        ownProfile?.name,
+                      );
+                      const rankStyle = row.rank === 1
+                        ? styles.winVictorGold
+                        : row.rank === 2
+                          ? styles.winVictorSilver
+                          : styles.winVictorBronze;
+                      const payout = row.win === undefined ? row.amount : row.win;
+                      return (
+                        <div key={row.playerId} className={styles.winVictor}>
+                          <div className={`${styles.winVictorAvatar} ${rankStyle}`}>
+                            <GamePlayerAvatar src={avatar} draggable={false} />
+                            <span className={styles.winVictorCrown}>{row.rank}</span>
+                          </div>
+                          <div className={styles.winVictorName} title={name}>{name}</div>
+                          {payout !== null && (
+                            <div className={styles.winVictorAmt}>
+                              <span className={styles.winVictorCoin}>G</span>
+                              {formatChip(payout)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className={styles.winVictorsRow}>
-                  {winVictors.map((v) => (
-                    <div key={v.rank} className={styles.winVictor}>
-                      <div
-                        className={`${styles.winVictorAvatar} ${
-                          v.rank === 1
-                            ? styles.winVictorGold
-                            : v.rank === 2
-                              ? styles.winVictorSilver
-                              : styles.winVictorBronze
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(v.seed)}`}
-                          alt=""
-                          draggable={false}
-                        />
-                        <span className={styles.winVictorCrown}>{v.rank}</span>
-                      </div>
-                      <div className={styles.winVictorName}>{v.name}</div>
-                      <div className={styles.winVictorAmt}>
-                        <span className={styles.winVictorCoin}>G</span>
-                        {formatChip(v.amount)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
