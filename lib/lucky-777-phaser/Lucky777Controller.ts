@@ -124,6 +124,8 @@ export class Lucky777Controller {
   balance = 0;
   todayProfit = 0;
   currentBets: Record<string, number> = {};
+  /** Previous round bets (repeat + win fallback if currentBets cleared). */
+  lastPlacedBets: Record<string, number> = {};
   currentRound: GameRound | null = null;
   history: string[] = [];
   selectedChip = 1000;
@@ -135,6 +137,9 @@ export class Lucky777Controller {
   private destroyed = false;
   private lastWinner: string | null = null;
   private spinningForRound: string | null = null;
+  private spinCompleteForRound: string | null = null;
+  /** Bets frozen at spin start — podium/async must not rely on live currentBets. */
+  private spinBetsSnapshot: Record<string, number> = {};
   private spinHandle: SmoothBoardSpinHandle | null = null;
   private myProfile: { name: string; avatar: string } | null = null;
   private pageJustLoaded = true;
@@ -544,19 +549,55 @@ export class Lucky777Controller {
     this.emit('profile', this.myProfile);
   }
 
+  private betSnapshotTotal(bets: Record<string, number>): number {
+    return Object.values(bets).reduce((a, n) => a + (n || 0), 0);
+  }
+
+  private localBetsForRound(): Record<string, number> {
+    if (Object.keys(this.spinBetsSnapshot).length > 0) {
+      return this.spinBetsSnapshot;
+    }
+    if (Object.keys(this.currentBets).length > 0) return this.currentBets;
+    return this.lastPlacedBets;
+  }
+
+  /** payout_amount defaults to 0 in DB — only trust it when > 0. */
+  private rowWinAmount(
+    row: {
+      is_win?: boolean | null;
+      payout_amount?: number | string | null;
+      amount?: number | string | null;
+      bet_option?: string | null;
+    },
+    winnerId: string,
+    mult: number,
+  ): number {
+    const payout = Number(row.payout_amount);
+    if (row.is_win && Number.isFinite(payout) && payout > 0) return payout;
+    if (row.bet_option === winnerId) {
+      return (Number(row.amount) || 0) * mult;
+    }
+    return 0;
+  }
+
   /**
    * Top 3 winners on the winning option + current user round totals.
-   * Falls back to bet×multiplier when payout rows are not marked yet.
+   * Falls back to bet×multiplier / local snapshot when DB payout not ready
+   * (settle runs at spinning_ends_at; RLS may also hide others' rows).
    */
   private async fetchRoundPodium(
     roundId: string,
     winnerId: string,
   ): Promise<{ top: RoundPodiumPlayer[]; me: RoundPodiumPlayer | null }> {
     const mult = optionById(winnerId)?.multiplier || 1;
+    const localBets = this.localBetsForRound();
+    const localBetOnWinner = localBets[winnerId] || 0;
+    const localWin = localBetOnWinner * mult;
+    const localBetTotal = this.betSnapshotTotal(localBets);
 
     const { data: winBets } = await supabase
       .from('game_bets')
-      .select('user_id, amount, payout_amount, is_win')
+      .select('user_id, amount, payout_amount, is_win, bet_option')
       .eq('round_id', roundId)
       .eq('bet_option', winnerId);
 
@@ -567,11 +608,7 @@ export class Lucky777Controller {
       const cur = byUser.get(uid) || { bet: 0, win: 0 };
       const amount = Number(row.amount) || 0;
       cur.bet += amount;
-      if (row.is_win && row.payout_amount != null) {
-        cur.win += Number(row.payout_amount) || 0;
-      } else {
-        cur.win += amount * mult;
-      }
+      cur.win += this.rowWinAmount(row, winnerId, mult);
       byUser.set(uid, cur);
     }
 
@@ -628,13 +665,9 @@ export class Lucky777Controller {
     let me: RoundPodiumPlayer | null = null;
     if (this.userId) {
       const myWinRow = byUser.get(this.userId);
-      let betTotal = Object.values(this.currentBets).reduce(
-        (a, n) => a + (n || 0),
-        0,
-      );
+      let betTotal = localBetTotal;
       let winTotal = myWinRow?.win ?? 0;
 
-      // Prefer live DB totals for this round when available.
       const { data: myRows } = await supabase
         .from('game_bets')
         .select('amount, payout_amount, is_win, bet_option')
@@ -642,16 +675,15 @@ export class Lucky777Controller {
         .eq('user_id', this.userId);
       if (myRows && myRows.length > 0) {
         betTotal = myRows.reduce((a, r) => a + (Number(r.amount) || 0), 0);
-        winTotal = myRows.reduce((a, r) => {
-          if (r.is_win && r.payout_amount != null) {
-            return a + (Number(r.payout_amount) || 0);
-          }
-          if (r.bet_option === winnerId) {
-            return a + (Number(r.amount) || 0) * mult;
-          }
-          return a;
-        }, 0);
+        winTotal = myRows.reduce(
+          (a, r) => a + this.rowWinAmount(r, winnerId, mult),
+          0,
+        );
       }
+
+      // DB settle / RLS lag → keep local win so popup is not Win: 0.
+      if (winTotal <= 0 && localWin > 0) winTotal = localWin;
+      if (betTotal <= 0 && localBetTotal > 0) betTotal = localBetTotal;
 
       me = toPlayer(this.userId, betTotal, winTotal);
     }
@@ -926,10 +958,24 @@ export class Lucky777Controller {
   }
 
   private onBettingPhase() {
-    this.spinningForRound = null;
+    const interruptedRound = this.spinningForRound;
+    const interruptedWinner =
+      this.currentRound?.winner_result || this.lastWinner;
+    const wasSpinning = this.isSpinning || !!this.spinHandle;
+
     this.spinHandle?.cancel();
     this.spinHandle = null;
     this.isSpinning = false;
+    this.spinningForRound = null;
+
+    if (
+      wasSpinning &&
+      interruptedRound &&
+      interruptedWinner &&
+      this.spinCompleteForRound !== interruptedRound
+    ) {
+      void this.finishSpinResult(interruptedWinner, interruptedRound);
+    }
 
     if (this.lastWinner) {
       this.history = [...this.history.slice(-9), this.lastWinner];
@@ -939,6 +985,9 @@ export class Lucky777Controller {
     void this.refreshProfit();
     void this.refreshBalance();
 
+    if (Object.keys(this.currentBets).length > 0) {
+      this.lastPlacedBets = { ...this.currentBets };
+    }
     this.currentBets = {};
     this.emit('bets', {});
     this.emit('bettingCleared', undefined as void);
@@ -958,14 +1007,119 @@ export class Lucky777Controller {
       return;
     }
     if (round.winner_result && round.id) {
+      if (Object.keys(this.currentBets).length > 0) {
+        this.lastPlacedBets = { ...this.currentBets };
+      }
       this.triggerSpin(round.winner_result, round.id);
     }
+  }
+
+  private mergeMePodium(
+    podiumMe: RoundPodiumPlayer | null,
+    userBetOnWinner: number,
+    winCoins: number,
+  ): RoundPodiumPlayer | null {
+    if (!this.userId) return null;
+    const localTotal = this.betSnapshotTotal(this.localBetsForRound());
+    const base =
+      podiumMe ||
+      ({
+        userId: this.userId,
+        name: this.myProfile?.name || 'You',
+        avatar: this.myProfile?.avatar || resolveAvatarUrl(null, this.userId),
+        bet: 0,
+        win: 0,
+      } satisfies RoundPodiumPlayer);
+
+    return {
+      ...base,
+      bet: Math.max(base.bet, localTotal, userBetOnWinner),
+      win: Math.max(base.win, winCoins),
+    };
+  }
+
+  private async finishSpinResult(winnerId: string, roundId: string) {
+    if (this.destroyed) return;
+    if (this.spinCompleteForRound === roundId) return;
+    this.spinCompleteForRound = roundId;
+    this.lastWinner = winnerId;
+    this.isSpinning = false;
+    this.spinHandle = null;
+    this.playSound('win.mp3');
+
+    const winningItem = optionById(winnerId);
+    const bets = this.localBetsForRound();
+    const userBetOnWinner = bets[winnerId] || 0;
+    const winCoins = userBetOnWinner * (winningItem?.multiplier || 0);
+
+    if (winCoins > 0) {
+      reportGameWin({
+        gameSlug: GAME_SLUG,
+        gameName: GAME_NAME,
+        winCoins,
+        multiplier: winningItem?.multiplier || 1,
+        betAmount: userBetOnWinner,
+      });
+      this.balance += winCoins;
+      this.emit('balance', this.balance);
+      const uid = this.userId;
+      const credited = this.balance;
+      if (uid) {
+        const reconcile = (attempt: number) => {
+          void fetchUserCoins(uid).then((coins) => {
+            if (coins == null || this.destroyed) return;
+            if (coins < credited && attempt < 4) {
+              window.setTimeout(() => reconcile(attempt + 1), 700);
+              return;
+            }
+            this.balance = coins;
+            this.emit('balance', this.balance);
+          });
+        };
+        window.setTimeout(() => reconcile(0), 700);
+      }
+    }
+
+    let podium = {
+      top: [] as RoundPodiumPlayer[],
+      me: null as RoundPodiumPlayer | null,
+    };
+    try {
+      podium = await this.fetchRoundPodium(roundId, winnerId);
+      if (
+        !this.destroyed &&
+        (podium.top.length === 0 || (podium.me?.win ?? 0) <= 0) &&
+        winCoins > 0
+      ) {
+        await new Promise((r) => window.setTimeout(r, 450));
+        if (!this.destroyed) {
+          podium = await this.fetchRoundPodium(roundId, winnerId);
+        }
+      }
+    } catch {
+      // still emit so HUD win popup can open
+    }
+
+    if (this.destroyed) return;
+    this.emit('spinComplete', {
+      winnerId,
+      winCoins,
+      userBetOnWinner,
+      topWinners: podium.top,
+      me: this.mergeMePodium(podium.me, userBetOnWinner, winCoins),
+    });
   }
 
   private triggerSpin(winnerId: string, roundId: string) {
     if (this.spinningForRound === roundId) return;
     this.spinningForRound = roundId;
+    this.spinCompleteForRound = null;
     this.spinHandle?.cancel();
+
+    this.spinBetsSnapshot = { ...this.currentBets };
+    if (Object.keys(this.spinBetsSnapshot).length > 0) {
+      this.lastPlacedBets = { ...this.spinBetsSnapshot };
+    }
 
     const winIdx = pickWinSegmentIndex(winnerId);
     this.isSpinning = true;
@@ -973,74 +1127,7 @@ export class Lucky777Controller {
     this.playSound('/fruit-party/sounds/spin_start.mp3');
 
     // Prefetch podium while the wheel spins so the card is ready on land.
-    let podiumPromise = this.fetchRoundPodium(roundId, winnerId);
-
-    const finish = () => {
-      void (async () => {
-        this.spinHandle = null;
-        this.lastWinner = winnerId;
-        this.isSpinning = false;
-        this.playSound('win.mp3');
-
-        const winningItem = optionById(winnerId);
-        const userBetOnWinner = this.currentBets[winnerId] || 0;
-        const winCoins = userBetOnWinner * (winningItem?.multiplier || 0);
-
-        if (winCoins > 0) {
-          reportGameWin({
-            gameSlug: GAME_SLUG,
-            gameName: GAME_NAME,
-            winCoins,
-            multiplier: winningItem?.multiplier || 1,
-            betAmount: userBetOnWinner,
-          });
-          this.balance += winCoins;
-          this.emit('balance', this.balance);
-          const uid = this.userId;
-          if (uid) {
-            window.setTimeout(() => {
-              void fetchUserCoins(uid).then((coins) => {
-                if (coins == null || this.destroyed) return;
-                this.balance = coins;
-                this.emit('balance', this.balance);
-              });
-            }, 700);
-          }
-        }
-
-        let podium = { top: [] as RoundPodiumPlayer[], me: null as RoundPodiumPlayer | null };
-        try {
-          podium = await Promise.race([
-            podiumPromise,
-            new Promise<typeof podium>((resolve) =>
-              window.setTimeout(() => resolve(podium), 2500),
-            ),
-          ]);
-          if (!this.destroyed && podium.top.length === 0) {
-            await new Promise((r) => window.setTimeout(r, 400));
-            if (!this.destroyed) {
-              podium = await Promise.race([
-                this.fetchRoundPodium(roundId, winnerId),
-                new Promise<typeof podium>((resolve) =>
-                  window.setTimeout(() => resolve(podium), 2000),
-                ),
-              ]);
-            }
-          }
-        } catch {
-          // still emit so HUD win popup can open
-        }
-
-        if (this.destroyed) return;
-        this.emit('spinComplete', {
-          winnerId,
-          winCoins,
-          userBetOnWinner,
-          topWinners: podium.top,
-          me: podium.me,
-        });
-      })();
-    };
+    void this.fetchRoundPodium(roundId, winnerId);
 
     this.lastSpinTickAt = 0;
     this.spinHandle = startSmoothBoardSpin({
@@ -1052,7 +1139,9 @@ export class Lucky777Controller {
       // spinIndex unused by HUD/scene — skip emit to cut React/listener work.
       onIndex: () => {},
       onTick: () => this.playSound('spin_tick.mp3'),
-      onComplete: finish,
+      onComplete: () => {
+        void this.finishSpinResult(winnerId, roundId);
+      },
     });
   }
 }

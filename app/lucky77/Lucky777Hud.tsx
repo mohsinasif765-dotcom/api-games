@@ -331,6 +331,9 @@ export function Lucky777Hud({
           const second = top[1] ?? null;
           const third = top[2] ?? null;
           const me = result.me;
+          // Controller merges local winCoins; keep max so popup never shows Win: 0 on a real win.
+          const meBet = Math.max(me?.bet ?? 0, result.userBetOnWinner ?? 0);
+          const meWin = Math.max(me?.win ?? 0, result.winCoins ?? 0);
 
           const fmt = (n: number) => (n ?? 0).toLocaleString();
           const avatarOf = (
@@ -395,10 +398,10 @@ export function Lucky777Hud({
                   />
                   <span className={styles.meName}>{me?.name ?? 'You'}</span>
                   <div className={styles.meStatBet}>
-                    Bet: {fmt(me?.bet ?? 0)}
+                    Bet: {fmt(meBet)}
                   </div>
                   <div className={styles.meStatWin}>
-                    Win: {fmt(me?.win ?? 0)}
+                    Win: {fmt(meWin)}
                   </div>
                 </div>
               </div>

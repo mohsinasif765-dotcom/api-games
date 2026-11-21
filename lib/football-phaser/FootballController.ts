@@ -118,6 +118,8 @@ export class FootballController {
   private destroyed = false;
   private lastWinner: string | null = null;
   private spinningForRound: string | null = null;
+  /** Prevents duplicate win popup / balance credit for the same round. */
+  private spinCompleteForRound: string | null = null;
   private spinHandle: SmoothBoardSpinHandle | null = null;
   private pageJustLoaded = true;
   private tickAudio: HTMLAudioElement | null = null;
@@ -889,10 +891,25 @@ export class FootballController {
   }
 
   private onBettingPhase() {
-    this.spinningForRound = null;
+    const interruptedRound = this.spinningForRound;
+    const interruptedWinner =
+      this.currentRound?.winner_result || this.lastWinner;
+    const wasSpinning = this.isSpinning || !!this.spinHandle;
+
     this.spinHandle?.cancel();
     this.spinHandle = null;
     this.isSpinning = false;
+    this.spinningForRound = null;
+
+    // Next betting started before 9s spin finished → still show popup + credit once.
+    if (
+      wasSpinning &&
+      interruptedRound &&
+      interruptedWinner &&
+      this.spinCompleteForRound !== interruptedRound
+    ) {
+      this.finishSpinResult(interruptedWinner, interruptedRound);
+    }
 
     if (this.lastWinner) {
       this.history = [...this.history.slice(-9), this.lastWinner];
@@ -932,6 +949,59 @@ export class FootballController {
     }
   }
 
+  /** Same pattern as Lucky77: bump HUD balance now, reconcile from server after. */
+  private finishSpinResult(winnerId: string, roundId: string) {
+    if (this.destroyed) return;
+    if (this.spinCompleteForRound === roundId) return;
+    this.spinCompleteForRound = roundId;
+    this.lastWinner = winnerId;
+    this.isSpinning = false;
+    this.spinHandle = null;
+    this.playSound('win.mp3');
+
+    const winningItem = teamById(winnerId);
+    const userBetOnWinner =
+      this.currentBets[winnerId] || this.lastPlacedBets[winnerId] || 0;
+    const mult = winningItem?.multiplier || 0;
+    const winCoins = userBetOnWinner * mult;
+
+    if (winCoins > 0) {
+      reportGameWin({
+        gameSlug: GAME_SLUG,
+        gameName: GAME_NAME,
+        winCoins,
+        multiplier: mult || 1,
+        betAmount: userBetOnWinner,
+      });
+      // Instant HUD bump (Lucky77) — server settle can lag on merchant wallet.
+      this.balance += winCoins;
+      this.emit('balance', this.balance);
+      const uid = this.userId;
+      const credited = this.balance;
+      if (uid) {
+        const reconcile = (attempt: number) => {
+          void fetchUserCoins(uid).then((coins) => {
+            if (coins == null || this.destroyed) return;
+            // Payout not in DB yet → keep optimistic, retry a few times.
+            if (coins < credited && attempt < 4) {
+              window.setTimeout(() => reconcile(attempt + 1), 700);
+              return;
+            }
+            this.balance = coins;
+            this.emit('balance', this.balance);
+          });
+        };
+        window.setTimeout(() => reconcile(0), 700);
+      }
+    }
+
+    this.emit('spinComplete', {
+      winnerId,
+      winCoins,
+      userBetOnWinner,
+    });
+  }
+
   private triggerSpin(winnerId: string, roundId: string) {
     if (this.spinningForRound === roundId) return;
     this.spinningForRound = roundId;
@@ -942,52 +1012,6 @@ export class FootballController {
     this.emit('spinStart', { winnerId, roundId });
     this.playSound('/fruit-party/sounds/spin_start.mp3');
 
-    const finish = () => {
-      this.spinHandle = null;
-      this.lastWinner = winnerId;
-      this.isSpinning = false;
-      this.playSound('win.mp3');
-
-      const winningItem = teamById(winnerId);
-      const userBetOnWinner = this.currentBets[winnerId] || 0;
-      const mult = winningItem?.multiplier || 0;
-      const winCoins = userBetOnWinner * mult;
-
-      if (winCoins > 0) {
-        reportGameWin({
-          gameSlug: GAME_SLUG,
-          gameName: GAME_NAME,
-          winCoins,
-          multiplier: mult || 1,
-          betAmount: userBetOnWinner,
-        });
-        // Don't invent balance from client odds — server is source of truth
-        // (meta.options must match TEAMS; optimistic add caused "win shown but
-        // coins not added" when DB multipliers disagreed with the pitch art).
-        const uid = this.userId;
-        if (uid) {
-          void fetchUserCoins(uid).then((coins) => {
-            if (coins == null || this.destroyed) return;
-            this.balance = coins;
-            this.emit('balance', this.balance);
-          });
-          window.setTimeout(() => {
-            void fetchUserCoins(uid).then((coins) => {
-              if (coins == null || this.destroyed) return;
-              this.balance = coins;
-              this.emit('balance', this.balance);
-            });
-          }, 900);
-        }
-      }
-
-      this.emit('spinComplete', {
-        winnerId,
-        winCoins,
-        userBetOnWinner,
-      });
-    };
-
     this.spinHandle = startSmoothBoardSpin({
       optionCount: 16,
       winIndex: winIdx,
@@ -995,7 +1019,10 @@ export class FootballController {
       loops: 4,
       onIndex: (idx) => this.emit('spinIndex', idx),
       onTick: () => this.playSound('spin_tick.mp3'),
-      onComplete: finish,
+      onComplete: () => {
+        this.spinHandle = null;
+        this.finishSpinResult(winnerId, roundId);
+      },
     });
   }
 }

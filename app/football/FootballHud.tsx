@@ -111,7 +111,7 @@ export function FootballHud({
         setWinHighlight(null);
         setSpinIndex(null);
         setWinLogoIndex(null);
-        setWinPopup(null);
+        // Keep result popup (Lucky77 pattern) — timer / next spinStart clears it
         window.setTimeout(() => setShowStart(false), 2200);
       }),
       controller.on('spinStart', () => {
@@ -129,7 +129,6 @@ export function FootballHud({
       }),
       controller.on('spinComplete', (payload) => {
         setSpinning(false);
-        // Gold frame stays until next betting round (startBetting / bettingCleared)
         setWinHighlight(payload.winnerId);
         const last = spinIndexRef.current;
         const winIdx =
@@ -164,10 +163,7 @@ export function FootballHud({
         setAllBets({});
         setChipOnBox({});
         setSpinning(false);
-        setWinHighlight(null);
-        setSpinIndex(null);
-        setWinLogoIndex(null);
-        setWinPopup(null);
+        // Do not clear winPopup here — next round used to kill it instantly
       }),
       controller.on('ready', (payload) => {
         setBalance(payload.balance);
