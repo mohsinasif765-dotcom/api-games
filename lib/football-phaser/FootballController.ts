@@ -950,27 +950,34 @@ export class FootballController {
 
       const winningItem = teamById(winnerId);
       const userBetOnWinner = this.currentBets[winnerId] || 0;
-      const winCoins = userBetOnWinner * (winningItem?.multiplier || 0);
+      const mult = winningItem?.multiplier || 0;
+      const winCoins = userBetOnWinner * mult;
 
       if (winCoins > 0) {
         reportGameWin({
           gameSlug: GAME_SLUG,
           gameName: GAME_NAME,
           winCoins,
-          multiplier: winningItem?.multiplier || 1,
+          multiplier: mult || 1,
           betAmount: userBetOnWinner,
         });
-        this.balance += winCoins;
-        this.emit('balance', this.balance);
+        // Don't invent balance from client odds — server is source of truth
+        // (meta.options must match TEAMS; optimistic add caused "win shown but
+        // coins not added" when DB multipliers disagreed with the pitch art).
         const uid = this.userId;
         if (uid) {
+          void fetchUserCoins(uid).then((coins) => {
+            if (coins == null || this.destroyed) return;
+            this.balance = coins;
+            this.emit('balance', this.balance);
+          });
           window.setTimeout(() => {
             void fetchUserCoins(uid).then((coins) => {
               if (coins == null || this.destroyed) return;
               this.balance = coins;
               this.emit('balance', this.balance);
             });
-          }, 700);
+          }, 900);
         }
       }
 
